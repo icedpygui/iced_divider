@@ -1,33 +1,4 @@
-//! Dividers let users set a value by moving an indicator.
-//!
-//! # Example
-//! ```no_run
-//! # mod iced { pub mod widget { pub use iced_widget::*; } pub use iced_widget::Renderer; pub use iced_widget::core::*; }
-//! # pub type Element<'a, Message> = iced_widget::core::Element<'a, Message, iced_widget::Theme, iced_widget::Renderer>;
-//! #
-//! use iced::widget::divider;
-//!
-//! struct State {
-//!    value: f32,
-//! }
-//!
-//! #[derive(Debug, Clone)]
-//! enum Message {
-//!     ValueChanged(f32),
-//! }
-//!
-//! fn view(state: &State) -> Element<'_, Message> {
-//!     divider(0.0..=100.0, state.value, Message::ValueChanged).into()
-//! }
-//!
-//! fn update(state: &mut State, message: Message) {
-//!     match message {
-//!         Message::ValueChanged(value) => {
-//!             state.value = value;
-//!         }
-//!     }
-//! }
-//! ```
+//! Display an interactive selector of a single value from a range of values to resize containers.
 use iced::border::{self, Border};
 use iced::event::{self, Event};
 use iced::advanced::layout;
@@ -42,13 +13,7 @@ use iced::{
 use iced::advanced::{Clipboard, Layout, Shell, Widget};
 use std::ops::RangeInclusive;
 
-/// An horizontal bar and a handle that selects a single value from a range of
-/// values.
-///
-/// A [`Divider`] will try to fill the horizontal space of its container.
-///
-/// The [`Divider`] range of numeric values is generic and its step size defaults
-/// to 1 unit.
+/// Dividers let users resize an by moving the divider handle..
 ///
 /// # Example
 /// ```no_run
@@ -58,87 +23,137 @@ use std::ops::RangeInclusive;
 /// use iced::widget::divider;
 ///
 /// struct State {
-///    value: f32,
+///     column_widths: [f32; 2],
+///     divider_values: Vec<f32>,
+///     range: RangeInclusive<f32>,
+///     divider_width: f32,
 /// }
 ///
 /// #[derive(Debug, Clone)]
 /// enum Message {
-///     ValueChanged(f32),
+///     DividerChanged((usize, f32)),
 /// }
 ///
 /// fn view(state: &State) -> Element<'_, Message> {
-///     divider(0.0..=100.0, state.value, Message::ValueChanged).into()
+///     let mut dividers: Vec<Element<Message>> = vec![];
+///     let mut item_row: Vec<Element<Message>> = vec![];
+///
+///     for (i, width) in self.column_widths.iter().enumerate() {
+///         // Add whatever container you want.
+///         item_row.push(container(
+///                         text(self.column_widths[i].to_string())
+///                             .width(Fill)
+///                             .align_x(Horizontal::Center))
+///                         .width(*width)
+///                         .style(move|theme| container::bordered_box(theme))
+///                         .into());
+///
+///         // In this case, we don't want one at the end.
+///         if i < self.column_widths.len()-1 {
+///                         dividers.push(divider(
+///                             i,
+///                             self.divider_values[i],
+///                             self.range.clone(),
+///                             Message::DividerChange,
+///                         )
+///                         .into());
+///         }
+///     };
+///
+///     // Put the items into a row
+///     let rw: Element<Message> = 
+///         row(item_row)
+///             .width(self.divider_width)
+///             .into();
+///     // Insert the row at the beginning so that the dividers are on top
+///     // You could add a space in the row and let the dividers be on the
+///     // bottom but then you'll have to play around with the stating values
+///     // of the dividers so that they can be seen, not difficult just much
+///     // easier to let them stay on top.
+///     dividers.insert(0, rw);
+///     // put them in a stack
+///     let stk = stack(dividers);
+///     // Center everything in the window
+///     center(stk).into()
 /// }
 ///
 /// fn update(state: &mut State, message: Message) {
 ///     match message {
-///         Message::ValueChanged(value) => {
-///             state.value = value;
-///         }
+///         Message::DividerChange((index, value)) => {
+///            // Adjust the left side
+///            if index == 0 {
+///                self.column_widths[index] = value;
+///            } else {
+///                self.column_widths[index] = value - self.divider_values[index-1];
+///            }
+///            // Adjust the right side
+///            if index == self.divider_values.len()-1 {
+///                self.column_widths[index+1] = self.divider_width - value;
+///            } else {
+///                self.column_widths[index+1] = self.divider_values[index+1] - value;
+///            }
+///        }
+///            self.divider_values[index] = value;
 ///     }
 /// }
 /// ```
 
-pub fn divider<'a, T, Message, Theme>(
-    count: usize,
+pub fn divider<'a, Message, Theme>(
     index: usize,
-    value: T,
-    range: std::ops::RangeInclusive<T>,
-    on_change: impl Fn((usize, T)) -> Message + 'a,
-) -> Divider<'a, T, Message, Theme>
+    value: f32,
+    range: std::ops::RangeInclusive<f32>,
+    on_change: impl Fn((usize, f32)) -> Message + 'a,
+) -> Divider<'a, Message, Theme>
 where
-    T: Copy + PartialOrd + From<u8>,
     Message: Clone,
     Theme: Catalog + 'a,
 {
-    Divider::new(count, index, value, range, on_change)
+    Divider::new(index, value, range, on_change)
 }
 
 
 #[allow(missing_debug_implementations)]
-pub struct Divider<'a, T, Message, Theme = iced::Theme>
+pub struct Divider<'a, Message, Theme = iced::Theme>
 where
     Theme: Catalog,
 {
-    count: usize,
     index: usize,
-    value: T,
-    range: RangeInclusive<T>,
-    step: T,
-    handle_width: Vec<f32>,
-    on_change: Box<dyn Fn((usize, T)) -> Message + 'a>,
+    value: f32,
+    range: RangeInclusive<f32>,
+    step: f32,
+    handle_width: f32,
+    on_change: Box<dyn Fn((usize, f32)) -> Message + 'a>,
     on_release: Option<Message>,
     width: Length,
     height: f32,
     class: Theme::Class<'a>,
 }
 
-impl<'a, T, Message, Theme> Divider<'a, T, Message, Theme>
+impl<'a, Message, Theme> Divider<'a, Message, Theme>
 where
-    T: Copy + From<u8> + PartialOrd,
     Message: Clone,
     Theme: Catalog,
 {
-    /// The default height of a [`Slider`].
+    /// The default height of a [`Divider`].
     pub const DEFAULT_HEIGHT: f32 = 21.0;
 
-    /// Creates a new [`Slider`].
+    /// Creates a new [`Divider`].
     ///
     /// It expects:
+    ///   * the index of the divider, used as an id
+    ///   * the current value of the [`Divider`]
     ///   * an inclusive range of possible values
-    ///   * the current value of the [`Slider`]
-    ///   * a function that will be called when the [`Slider`] is dragged.
-    ///     It receives the new value of the [`Slider`] and must produce a
+    ///   * a function that will be called when the [`Divider`] is dragged.
+    ///     It receives the new value of the [`Divider`] and must produce a
     ///     `Message`.
     pub fn new<F>(
-        count: usize,
         index: usize,
-        value: T, 
-        range: RangeInclusive<T>,
+        value: f32, 
+        range: RangeInclusive<f32>,
         on_change: F) 
         -> Self
     where
-        F: 'a + Fn((usize, T)) -> Message,
+        F: 'a + Fn((usize, f32)) -> Message,
     {
         let value = if value >= *range.start() {
             value
@@ -151,15 +166,13 @@ where
         } else {
             *range.end()
         };
-        let handle_width = vec![4.0; count];
 
         Divider {
-            count,
             index,
             value,
             range,
-            handle_width,
-            step: T::from(1),
+            handle_width: 4.0,
+            step: 1.0,
             on_change: Box::new(on_change),
             on_release: None,
             width: Length::Fill,
@@ -178,17 +191,13 @@ where
         self.on_release = Some(on_release);
         self
     }
-    /// Sets the handle width of each [`Divider`].
-    pub fn handle_width(mut self, handle_width: Vec<f32>) -> Self {
-        let width = if handle_width.len() == 1 {
-            vec![handle_width[0]; self.count]
-        } else {
-            handle_width
-        };
-        self.handle_width = width;
+    /// Sets the handle width of a [`Divider`].
+    pub fn handle_width(mut self, handle_width: f32) -> Self {
+        self.handle_width = handle_width;
         self
     }
-    /// Sets the width of the [`Divider`].
+    /// Sets the width of the [`Divider`] which usually spans the entire width of the items.
+    /// If shorter that the entire width, could act as a max width.
     pub fn width(mut self, width: impl Into<Length>) -> Self {
         self.width = width.into();
         self
@@ -201,8 +210,8 @@ where
     }
 
     /// Sets the step size of the [`Divider`].
-    pub fn step(mut self, step: impl Into<T>) -> Self {
-        self.step = step.into();
+    pub fn step(mut self, step: f32) -> Self {
+        self.step = step;
         self
     }
 
@@ -224,10 +233,9 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Divider<'a, T, Message, Theme>
+impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Divider<'a, Message, Theme>
 where
-    T: Copy + Into<f64> + num_traits::FromPrimitive,
     Message: Clone,
     Theme: Catalog,
     Renderer: iced::advanced::Renderer,
@@ -271,32 +279,32 @@ where
         let value: f64 = self.value.clone().into();
         let is_dragging = state.is_dragging;
 
-        let locate = |cursor_position: Point| -> Option<T> {
+        let locate = |cursor_position: Point| -> Option<f32> {
             let bounds = layout.bounds();
             let new_value = if cursor_position.x <= bounds.x {
                 Some(*self.range.start())
             } else if cursor_position.x >= bounds.x + bounds.width {
                 Some(*self.range.end())
             } else {
-                let step = self.step.into();
+                let step = self.step;
 
-                let start = (*self.range.start()).into();
-                let end = (*self.range.end()).into();
+                let start = *self.range.start();
+                let end = *self.range.end();
 
-                let percent = f64::from(cursor_position.x - bounds.x)
-                    / f64::from(bounds.width);
+                let percent = f32::from(cursor_position.x - bounds.x)
+                    / f32::from(bounds.width);
 
-                let steps = (percent * (end - start) / step).round();
+                let steps = (percent * (end - start) / step ).round();
                 let value = steps * step + start;
 
-                T::from_f64(value.min(end))
+                Some(value.min(end))
             };
 
             new_value
         };
 
-        let change = |new_value: T| {
-            if (self.value.into() - new_value.into()).abs() > f64::EPSILON {
+        let change = |new_value: f32| {
+            if (self.value - new_value).abs() > f32::EPSILON {
                 shell.publish((self.on_change)((self.index, new_value)));
 
                 self.value = new_value;
@@ -310,7 +318,7 @@ where
                     let bounds = layout.bounds();
                     let mut handle_bounds = layout.bounds();
                     handle_bounds.x = bounds.x + value as f32;
-                    handle_bounds.width = self.handle_width[self.index];
+                    handle_bounds.width = self.handle_width;
                     handle_bounds
                 };
                 if let Some(cursor_position) =
@@ -374,7 +382,7 @@ where
         );
 
         let (handle_width, handle_height, handle_border_radius) =
-            match style.handle.shape {
+            match style.shape {
                 HandleShape::Circle { radius } => {
                     (radius * 2.0, radius * 2.0, radius.into())
                 }
@@ -384,11 +392,11 @@ where
                 } => (f32::from(width), bounds.height, border_radius),
             };
 
-        let value = self.value.into() as f32;
+        let value = self.value;
         let (range_start, range_end) = {
             let (start, end) = self.range.clone().into_inner();
 
-            (start.into() as f32, end.into() as f32)
+            (start, end)
         };
 
         let offset = if range_start >= range_end {
@@ -398,24 +406,24 @@ where
                 / (range_end - range_start)
         };
 
-        let rail_y = bounds.y + bounds.height / 2.0;
+        let handle_y = bounds.y + bounds.height / 2.0;
 
         renderer.fill_quad(
             renderer::Quad {
                 bounds: Rectangle {
                     x: bounds.x + offset,
-                    y: rail_y - handle_height / 2.0,
+                    y: handle_y - handle_height / 2.0,
                     width: handle_width,
                     height: handle_height,
                 },
                 border: Border {
                     radius: handle_border_radius,
-                    width: style.handle.border_width,
-                    color: style.handle.border_color,
+                    width: style.border_width,
+                    color: style.border_color,
                 },
                 ..renderer::Quad::default()
             },
-            style.handle.background,
+            style.background,
         );
     }
 
@@ -448,16 +456,15 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> From<Divider<'a, T, Message, Theme>>
+impl<'a, Message, Theme, Renderer> From<Divider<'a, Message, Theme>>
     for Element<'a, Message, Theme, Renderer>
 where
-    T: Copy + Into<f64> + num_traits::FromPrimitive + 'a,
     Message: Clone + 'a,
     Theme: Catalog + 'a,
     Renderer: iced::advanced::Renderer + 'a,
 {
     fn from(
-        divider: Divider<'a, T, Message, Theme>,
+        divider: Divider<'a, Message, Theme>,
     ) -> Element<'a, Message, Theme, Renderer> {
         Element::new(divider)
     }
@@ -482,24 +489,6 @@ pub enum Status {
 /// The appearance of a Divider.
 #[derive(Debug, Clone, Copy)]
 pub struct Style {
-    /// The appearance of the [`Handle`] of the Divider.
-    pub handle: Handle,
-}
-
-impl Style {
-    /// Changes the [`HandleShape`] of the [`Style`] to a circle
-    /// with the given radius.
-    pub fn with_circular_handle(mut self, radius: impl Into<Pixels>) -> Self {
-        self.handle.shape = HandleShape::Circle {
-            radius: radius.into().0,
-        };
-        self
-    }
-}
-
-/// The appearance of the handle of a Divider.
-#[derive(Debug, Clone, Copy)]
-pub struct Handle {
     /// The shape of the handle.
     pub shape: HandleShape,
     /// The [`Background`] of the handle.
@@ -508,6 +497,17 @@ pub struct Handle {
     pub border_width: f32,
     /// The border [`Color`] of the handle.
     pub border_color: Color,
+}
+
+impl Style {
+    /// Changes the [`HandleShape`] of the [`Style`] to a circle
+    /// with the given radius.
+    pub fn with_circular_handle(mut self, radius: impl Into<Pixels>) -> Self {
+        self.shape = HandleShape::Circle {
+            radius: radius.into().0,
+        };
+        self
+    }
 }
 
 /// The shape of the handle of a Divider.
@@ -565,11 +565,9 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     };
 
     Style {
-        handle: Handle {
-            shape: HandleShape::Rectangle { width: 4, border_radius: 0.0.into() },
-            background: color.into(),
-            border_color: Color::TRANSPARENT,
-            border_width: 0.0,
-        },
+        shape: HandleShape::Rectangle { width: 4, border_radius: 0.0.into() },
+        background: color.into(),
+        border_color: Color::TRANSPARENT,
+        border_width: 0.0,
     }
 }

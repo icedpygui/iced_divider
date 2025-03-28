@@ -5,15 +5,8 @@ edition = "2021"
 authors = [""]
 description = "An Iced widget for allowing adjacent containers to be resized"
 
-
-[workspace]
-default-members = [
-  "./example"
-]
-members = [
-  ".",
-  "./example",
-]
+[lib]
+name = "iced_divider"
 
 [dependencies]
 iced = {version = "0.13.1", features = ["debug", "advanced", "lazy"]}

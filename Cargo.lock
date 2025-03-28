@@ -954,14 +954,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example"
-version = "0.1.0"
-dependencies = [
- "iced",
- "iced_divider",
-]
-
-[[package]]
 name = "fast-srgb8"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
