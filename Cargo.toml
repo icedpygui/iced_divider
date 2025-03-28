@@ -1,0 +1,23 @@
+[package]
+name = "iced_divider"
+version = "0.1.0"
+edition = "2021"
+authors = [""]
+description = "An Iced widget for allowing adjacent containers to be resized"
+
+
+[workspace]
+default-members = [
+  "./example"
+]
+members = [
+  ".",
+  "./example",
+]
+
+[dependencies]
+iced = {version = "0.13.1", features = ["debug", "advanced", "lazy"]}
+num-traits = "0.2"
+
+[package.metadata.docs.rs]
+all-features = true
