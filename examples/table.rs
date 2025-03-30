@@ -60,6 +60,11 @@ impl <'a> App <'a>{
     fn update(&mut self, message: Message) {
         match message {
             Message::DividerChange((index, value)) => {
+                // Note: this is the divider index not the column index
+                // By using the divider positions only, one doesn't need
+                // to keep track of the offset values from the original ones
+                // unless a reset is wanted.
+                
                 // Adjust the left side
                 if index == 0 {
                     self.column_widths[index] = value;

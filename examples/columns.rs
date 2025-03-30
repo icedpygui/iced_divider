@@ -1,0 +1,134 @@
+//! Example
+use iced::widget::{button, center, column, container, row, stack, text, toggler};
+
+use iced::{Color, Element, Size};
+
+use std::ops::RangeInclusive;
+use iced_divider::divider::divider;
+
+pub fn main() -> iced::Result {
+    iced::application(App::title, App::update, App::view)
+        .theme(App::theme)
+        .antialiasing(true)
+        .centered()
+        .window_size(Size::new(600.0, 400.0))
+        .run()
+}
+
+struct App {
+    column_widths: [f32; 2],
+    divider_value: f32,
+    range: RangeInclusive<f32>,
+    divider_width: f32,
+    handle_width: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Message {
+    DividerChange((usize, f32)),
+}
+
+impl App {
+    fn new() -> Self {
+        let column_widths = [300.0; 2];
+        App {
+            column_widths,
+            // Since the default divider width is 4, adjust the value to line up with the item border
+            divider_value: 298.0,
+            // The range can be shorter than the entire width
+            range: 0.0..=600.0,
+            divider_width: column_widths.iter().sum::<f32>(),
+            handle_width: 4.0, // defaults to 4 just using for demo info
+        }
+    }
+
+    fn title(&self) -> String {
+        String::from("Custom Widget - Iced")
+    }
+
+    fn theme(&self) -> iced::Theme {
+        iced::Theme::Dark
+    }
+
+    fn update(&mut self, message: Message) {
+        match message {
+            Message::DividerChange((index, value)) => {
+                // if you have more than 2 columns use the method 
+                // in the texts or table example
+
+                // Adjust the left side
+                self.column_widths[index] = value;
+                
+                // Adjust the right side
+                self.column_widths[index+1] += self.divider_value - value;
+                
+                self.divider_value = value;
+            },
+        }
+    }
+
+    fn view(&self) -> Element<Message> {
+
+        let mut dividers: Vec<Element<Message>> = vec![];
+        let mut item_row: Vec<Element<Message>> = vec![];
+
+        for width in self.column_widths.iter() {
+            // Add whatever container you want.
+            item_row.push(
+                container(
+                column![
+                    text(format!("Width = {}", width)),
+                    button("Some Button"),
+                    button("Anonter button"),
+                    toggler(false).label("Toggler"),
+                    ]           
+                    .width(*width)
+                ).style(|_|{
+                    let mut style = container::Style::default();
+                    style.border.color = Color::WHITE;
+                    style.border.width = 1.0;
+                    style
+                }).into()
+            );
+        };
+        
+        // Make the divider and add to a vec for later use
+        // if the containers have a border, you could make the 
+        // dividers transparent and then the border would act
+        // like the divider since it lays on top.
+        dividers.push(divider(
+            0,
+            self.divider_value,
+            self.range.clone(),
+            Message::DividerChange,
+        )
+        .height(200.0)
+        .handle_width(self.handle_width)
+        .into());
+   
+
+        // Put the columns into a row
+        let rw: Element<Message> = 
+            row(item_row)
+                .width(self.divider_width)
+                .into();
+
+        // Insert the row at the beginning so that the dividers are on top.
+        // You could add a space in the row and let the dividers be on the
+        // bottom
+        dividers.insert(0, rw);
+        // put them in a stack
+        let stk = stack(dividers);
+        // Center everything in the window
+        center(stk).into()
+
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+

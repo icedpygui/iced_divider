@@ -9,8 +9,7 @@ description = "An Iced widget for allowing adjacent containers to be resized"
 name = "iced_divider"
 
 [dependencies]
-iced = {version = "0.13.1", features = ["debug", "advanced", "lazy"]}
-num-traits = "0.2"
+iced = {version = "0.13.1", features = ["advanced"]}
 
 [package.metadata.docs.rs]
 all-features = true

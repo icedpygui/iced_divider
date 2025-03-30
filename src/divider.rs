@@ -508,6 +508,7 @@ impl Style {
         };
         self
     }
+
 }
 
 /// The shape of the handle of a Divider.
