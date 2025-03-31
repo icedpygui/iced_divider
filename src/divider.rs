@@ -7,7 +7,7 @@ use iced::advanced::renderer;
 use iced::touch;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::{
-    self, Color, Element, Length, Pixels, Point,
+    self, Color, Element, Length, Point,
     Rectangle, Size, Theme,
 };
 use iced::advanced::{Clipboard, Layout, Shell, Widget};
@@ -121,10 +121,12 @@ where
     range: RangeInclusive<f32>,
     step: f32,
     handle_width: f32,
+    handle_height: f32,
     on_change: Box<dyn Fn((usize, f32)) -> Message + 'a>,
     on_release: Option<Message>,
     width: Length,
-    height: f32,
+    height: Length,
+    direction: Direction,
     class: Theme::Class<'a>,
 }
 
@@ -171,11 +173,13 @@ where
             value,
             range,
             handle_width: 4.0,
+            handle_height: 21.0,
             step: 1.0,
             on_change: Box::new(on_change),
             on_release: None,
             width: Length::Fill,
-            height: Self::DEFAULT_HEIGHT,
+            height: Length::Fill,
+            direction: Direction::Horizontal,
             class: Theme::default(),
         }
     }
@@ -195,6 +199,11 @@ where
         self.handle_width = handle_width;
         self
     }
+    /// Sets the handle width of a [`Divider`].
+    pub fn handle_height(mut self, handle_height: f32) -> Self {
+        self.handle_height = handle_height;
+        self
+    }
     /// Sets the width of the [`Divider`] which usually spans the entire width of the items.
     /// If shorter that the entire width, could act as a max width.
     pub fn width(mut self, width: impl Into<Length>) -> Self {
@@ -203,14 +212,20 @@ where
     }
 
     /// Sets the height of the [`Divider`].
-    pub fn height(mut self, height: impl Into<Pixels>) -> Self {
-        self.height = height.into().0;
+    pub fn height(mut self, height: impl Into<Length>) -> Self {
+        self.height = height.into();
         self
     }
 
     /// Sets the step size of the [`Divider`].
     pub fn step(mut self, step: f32) -> Self {
         self.step = step;
+        self
+    }
+
+    /// Sets the direction of the [`Divided`].
+    pub fn direction(mut self, direction: Direction) -> Self {
+        self.direction = direction;
         self
     }
 
@@ -280,28 +295,54 @@ where
 
         let locate = |cursor_position: Point| -> Option<f32> {
             let bounds = layout.bounds();
-            let new_value = if cursor_position.x <= bounds.x {
-                Some(*self.range.start())
-            } else if cursor_position.x >= bounds.x + bounds.width {
-                Some(*self.range.end())
-            } else {
-                let step = self.step;
+            match self.direction {
+                Direction::Horizontal => {
+                    let new_value = if cursor_position.x <= bounds.x {
+                        Some(*self.range.start())
+                    } else if cursor_position.x >= bounds.x + bounds.width {
+                        Some(*self.range.end())
+                    } else {
+                        let step = self.step;
 
-                let start = *self.range.start();
-                let end = *self.range.end();
+                        let start = *self.range.start();
+                        let end = *self.range.end();
 
-                let percent = f32::from(cursor_position.x - bounds.x)
-                    / f32::from(bounds.width);
+                        let percent = f32::from(cursor_position.x - bounds.x)
+                            / f32::from(bounds.width);
 
-                let steps = (percent * (end - start) / step ).round();
-                let value = steps * step + start;
+                        let steps = (percent * (end - start) / step ).round();
+                        let value = steps * step + start;
 
-                Some(value.min(end))
-            };
+                        Some(value.min(end))
+                    };
 
-            new_value
+                    new_value
+                },
+                Direction::Vertical => {
+                    let new_value = if cursor_position.y <= bounds.y {
+                        Some(*self.range.start())
+                    } else if cursor_position.y >= bounds.y + bounds.height {
+                        Some(*self.range.end())
+                    } else {
+                        let step = self.step;
+
+                        let start = *self.range.start();
+                        let end = *self.range.end();
+
+                        let percent = f32::from(cursor_position.y - bounds.y)
+                            / f32::from(bounds.height);
+
+                        let steps = (percent * (end - start) / step ).round();
+                        let value = steps * step + start;
+
+                        Some(value.min(end))
+                    };
+
+                    new_value
+                },
+            }
         };
-
+        
         let change = |new_value: f32| {
             if (self.value - new_value).abs() > f32::EPSILON {
                 shell.publish((self.on_change)((self.index, new_value)));
@@ -313,13 +354,20 @@ where
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                let handle_bounds =  {
-                    let bounds = layout.bounds();
-                    let mut handle_bounds = layout.bounds();
-                    handle_bounds.x = bounds.x + value as f32;
-                    handle_bounds.width = self.handle_width;
-                    handle_bounds
-                };
+                let bounds = layout.bounds();
+                let mut handle_bounds = layout.bounds();
+                
+                match self.direction {
+                    Direction::Horizontal => {
+                        handle_bounds.x = bounds.x + value as f32;
+                        handle_bounds.width = self.handle_width;
+                    },
+                    Direction::Vertical => {
+                        handle_bounds.y = bounds.y + value as f32;
+                        handle_bounds.height = self.handle_height;
+                    },
+                }
+                
                 if let Some(cursor_position) =
                     cursor.position_over(handle_bounds)
                 {
@@ -431,7 +479,7 @@ where
             let bounds = layout.bounds();
             let mut handle_bounds = layout.bounds();
             handle_bounds.x = bounds.x + value as f32;
-            handle_bounds.width = 4.0;
+            handle_bounds.width = self.handle_width;
             handle_bounds
         };
         let is_mouse_over = cursor.is_over(handle_bounds);
@@ -460,6 +508,15 @@ where
     }
 }
 
+/// The direction of [`Scrollable`].
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Direction {
+    /// Horizontal resizing
+    #[default]
+    Horizontal,
+    /// Vertical resizing
+    Vertical,
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct State {
     is_dragging: bool,

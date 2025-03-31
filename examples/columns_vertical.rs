@@ -1,26 +1,28 @@
 //! Example
-use iced::widget::{button, center, column, container, row, stack, text, toggler};
+use iced::widget::{button, center, column, container, stack, text, toggler};
 
+use iced::Length::Fill;
 use iced::{Color, Element, Size};
 
 use std::ops::RangeInclusive;
-use iced_divider::divider;
+use iced_divider::divider::{self, Direction};
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
         .theme(App::theme)
         .antialiasing(true)
         .centered()
-        .window_size(Size::new(600.0, 400.0))
+        .window_size(Size::new(400.0, 500.0))
         .run()
 }
 
 struct App {
-    column_widths: [f32; 2],
+    column_heights: [f32; 2],
     divider_value: f32,
     range: RangeInclusive<f32>,
-    divider_width: f32,
+    divider_height: f32,
     handle_width: f32,
+    handle_height: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -30,15 +32,16 @@ enum Message {
 
 impl App {
     fn new() -> Self {
-        let column_widths = [300.0; 2];
+        let column_heights = [200.0; 2];
         App {
-            column_widths,
-            // adjusting for handle_width of 4
-            divider_value: 298.0,
+            column_heights,
+            // adjusting for handle_height of 4
+            divider_value: 198.0,
             // The range can be shorter than the entire width
-            range: 0.0..=600.0,
-            divider_width: column_widths.iter().sum(),
-            handle_width: 4.0, // defaults to 4 just using for demo info
+            range: 0.0..=400.0,
+            divider_height: column_heights.iter().sum(),
+            handle_width: 200.0,
+            handle_height: 4.0,
         }
     }
 
@@ -57,10 +60,10 @@ impl App {
                 // in the texts or table example
 
                 // Adjust the left side
-                self.column_widths[index] = value;
+                self.column_heights[index] = value;
                 
                 // Adjust the right side
-                self.column_widths[index+1] += self.divider_value - value;
+                self.column_heights[index+1] += self.divider_value - value;
                 
                 self.divider_value = value;
             },
@@ -70,20 +73,21 @@ impl App {
     fn view(&self) -> Element<Message> {
 
         let mut dividers: Vec<Element<Message>> = vec![];
-        let mut item_row: Vec<Element<Message>> = vec![];
+        let mut item_col: Vec<Element<Message>> = vec![];
 
-        for width in self.column_widths.iter() {
+        for height in self.column_heights.iter() {
             // Add whatever container you want.
-            item_row.push(
+            item_col.push(
                 container(
                 column![
-                    text(format!("Width = {}", width)),
+                    text(format!("Column = {}", height)),
                     button("Some Button"),
                     button("Another button"),
                     toggler(false).label("Toggler"),
                     ]           
-                    .width(*width)
-                ).style(|_|{
+                    .height(*height)
+                )
+                .style(|_|{
                     let mut style = container::Style::default();
                     style.border.color = Color::WHITE;
                     style.border.width = 1.0;
@@ -102,25 +106,28 @@ impl App {
             self.range.clone(),
             Message::DividerChange,
         )
-        .height(200.0)
+        .direction(Direction::Vertical)
+        .height(4.0)
+        .width(Fill)
         .handle_width(self.handle_width)
-        .style(|theme, status| {
-            divider::transparent(theme, status)
-        })
+        .handle_height(self.handle_height)
+        // .style(|theme, status| {
+        //     divider::transparent(theme, status)
+        // })
         .into());
    
 
         // Put the columns into a row
-        let rw: Element<Message> = 
-            row(item_row)
-                .width(self.divider_width)
+        let col: Element<Message> = 
+            column(item_col)
+                .height(self.divider_height)
                 .into();
 
         // Insert the row at the beginning so that the dividers are on top.
         // You could add a space in the row and let the dividers be on the
         // bottom.  Since the stack is shrink length, the width of the
         // divider (not divider_handle) will be the with of the stack.
-        dividers.insert(0, rw);
+        dividers.insert(0, col);
         // put them in a stack
         let stk = stack(dividers);
         // Center everything in the window
