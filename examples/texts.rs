@@ -44,7 +44,7 @@ impl App {
     }
 
     fn title(&self) -> String {
-        String::from("Custom Widget - Iced")
+        String::from("Divider Widget - Iced")
     }
 
     fn theme(&self) -> iced::Theme {

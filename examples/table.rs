@@ -40,7 +40,7 @@ impl <'a> App <'a>{
             column_names: ["Col 1" ,"Col 2" ,"Col 3"],
             column_widths,
             // Since the default width is 4, adjust the value to line up with the item border
-            divider_values: vec![98.0, 198.0],
+            divider_values: vec![98.0, 200.0],
             range: 0.0..=300.0,
             // The divider widths span the entire width of the columns
             divider_width: column_widths.iter().sum::<f32>(),
@@ -50,7 +50,7 @@ impl <'a> App <'a>{
     }
 
     fn title(&self) -> String {
-        String::from("Custom Widget - Iced")
+        String::from("Divider Widget - Iced")
     }
 
     fn theme(&self) -> iced::Theme {

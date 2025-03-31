@@ -4,7 +4,7 @@ use iced::widget::{button, center, column, container, row, stack, text, toggler}
 use iced::{Color, Element, Size};
 
 use std::ops::RangeInclusive;
-use iced_divider::divider::divider;
+use iced_divider::divider;
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
@@ -33,17 +33,17 @@ impl App {
         let column_widths = [300.0; 2];
         App {
             column_widths,
-            // Since the default divider width is 4, adjust the value to line up with the item border
+            // adjusting for handle_width of 4
             divider_value: 298.0,
             // The range can be shorter than the entire width
             range: 0.0..=600.0,
-            divider_width: column_widths.iter().sum::<f32>(),
+            divider_width: column_widths.iter().sum(),
             handle_width: 4.0, // defaults to 4 just using for demo info
         }
     }
 
     fn title(&self) -> String {
-        String::from("Custom Widget - Iced")
+        String::from("Divider Widget - Iced")
     }
 
     fn theme(&self) -> iced::Theme {
@@ -88,15 +88,15 @@ impl App {
                     style.border.color = Color::WHITE;
                     style.border.width = 1.0;
                     style
-                }).into()
+                }
+            ).into()
             );
         };
         
         // Make the divider and add to a vec for later use
-        // if the containers have a border, you could make the 
-        // dividers transparent and then the border would act
-        // like the divider since it lays on top.
-        dividers.push(divider(
+        // In theis case, the containers have a border so
+        // we'll set the divider background to transparent.
+        dividers.push(divider::divider(
             0,
             self.divider_value,
             self.range.clone(),
@@ -104,6 +104,9 @@ impl App {
         )
         .height(200.0)
         .handle_width(self.handle_width)
+        .style(|theme, status| {
+            divider::transparent(theme, status)
+        })
         .into());
    
 
@@ -115,7 +118,8 @@ impl App {
 
         // Insert the row at the beginning so that the dividers are on top.
         // You could add a space in the row and let the dividers be on the
-        // bottom
+        // bottom.  Since the stack is shrink length, the width of the
+        // divider (not divider_handle) will be the with of the stack.
         dividers.insert(0, rw);
         // put them in a stack
         let stk = stack(dividers);

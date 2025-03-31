@@ -1,13 +1,13 @@
 //! Display an interactive selector of a single value from a range of values to resize containers.
-use iced::border::{self, Border};
+use iced::border::{Border, Radius};
 use iced::event::{self, Event};
 use iced::advanced::layout;
-use iced::mouse;
+use iced::{mouse, Background};
 use iced::advanced::renderer;
 use iced::touch;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::{
-    self, Background, Color, Element, Length, Pixels, Point,
+    self, Color, Element, Length, Pixels, Point,
     Rectangle, Size, Theme,
 };
 use iced::advanced::{Clipboard, Layout, Shell, Widget};
@@ -26,7 +26,6 @@ use std::ops::RangeInclusive;
 ///     column_widths: [f32; 2],
 ///     divider_values: Vec<f32>,
 ///     range: RangeInclusive<f32>,
-///     divider_width: f32,
 /// }
 ///
 /// #[derive(Debug, Clone)]
@@ -370,27 +369,18 @@ where
         let bounds = layout.bounds();
         let is_mouse_over = cursor.is_over(bounds);
         
-        let style = theme.style(
-            &self.class,
-            if state.is_dragging {
-                Status::Dragged
-            } else if is_mouse_over {
-                Status::Hovered
-            } else {
-                Status::Active
-            },
-        );
+        let status = if state.is_dragging {
+            Status::Dragged
+        } else if is_mouse_over {
+            Status::Hovered
+        } else {
+            Status::Active
+        };
 
-        let (handle_width, handle_height, handle_border_radius) =
-            match style.shape {
-                HandleShape::Circle { radius } => {
-                    (radius * 2.0, radius * 2.0, radius.into())
-                }
-                HandleShape::Rectangle {
-                    width,
-                    border_radius,
-                } => (f32::from(width), bounds.height, border_radius),
-            };
+        let style = theme.style(&self.class, status);
+        
+        let (handle_width, handle_height) =
+            (self.handle_width, bounds.height);
 
         let value = self.value;
         let (range_start, range_end) = {
@@ -417,7 +407,7 @@ where
                     height: handle_height,
                 },
                 border: Border {
-                    radius: handle_border_radius,
+                    radius: style.border_radius,
                     width: style.border_width,
                     color: style.border_color,
                 },
@@ -487,45 +477,16 @@ pub enum Status {
 }
 
 /// The appearance of a Divider.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Style {
-    /// The shape of the handle.
-    pub shape: HandleShape,
     /// The [`Background`] of the handle.
     pub background: Background,
     /// The border width of the handle.
     pub border_width: f32,
     /// The border [`Color`] of the handle.
     pub border_color: Color,
-}
-
-impl Style {
-    /// Changes the [`HandleShape`] of the [`Style`] to a circle
-    /// with the given radius.
-    pub fn with_circular_handle(mut self, radius: impl Into<Pixels>) -> Self {
-        self.shape = HandleShape::Circle {
-            radius: radius.into().0,
-        };
-        self
-    }
-
-}
-
-/// The shape of the handle of a Divider.
-#[derive(Debug, Clone, Copy)]
-pub enum HandleShape {
-    /// A circular handle.
-    Circle {
-        /// The radius of the circle.
-        radius: f32,
-    },
-    /// A rectangular shape.
-    Rectangle {
-        /// The width of the rectangle.
-        width: u16,
-        /// The border radius of the corners of the rectangle.
-        border_radius: border::Radius,
-    },
+    /// The border [`Radius`] of the handle.
+    pub border_radius: Radius,
 }
 
 /// The theme catalog of a [`Divider`].
@@ -547,7 +508,7 @@ impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
 
     fn default<'a>() -> Self::Class<'a> {
-        Box::new(default)
+        Box::new(primary)
     }
 
     fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
@@ -556,7 +517,7 @@ impl Catalog for Theme {
 }
 
 /// The default style of a [`Divider`].
-pub fn default(theme: &Theme, status: Status) -> Style {
+pub fn primary(theme: &Theme, status: Status) -> Style {
     let palette = theme.extended_palette();
 
     let color = match status {
@@ -566,9 +527,15 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     };
 
     Style {
-        shape: HandleShape::Rectangle { width: 4, border_radius: 0.0.into() },
         background: color.into(),
         border_color: Color::TRANSPARENT,
         border_width: 0.0,
+        border_radius: 0.0.into()
     }
+}
+
+pub fn transparent(theme: &Theme, status: Status) -> Style {
+    let mut style = primary(theme, status);
+    style.background = Color::TRANSPARENT.into();
+    style
 }
