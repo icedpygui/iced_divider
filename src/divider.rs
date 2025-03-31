@@ -431,7 +431,7 @@ where
             let bounds = layout.bounds();
             let mut handle_bounds = layout.bounds();
             handle_bounds.x = bounds.x + value as f32;
-            handle_bounds.width = 4.0;
+            handle_bounds.width = self.handle_width;
             handle_bounds
         };
         let is_mouse_over = cursor.is_over(handle_bounds);
