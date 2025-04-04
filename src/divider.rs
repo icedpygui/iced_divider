@@ -4,7 +4,7 @@ use iced::event::{self, Event};
 use iced::advanced::layout;
 use iced::{mouse, Background};
 use iced::advanced::renderer;
-use iced::touch;e editor
+use iced::touch;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::{
     self, Color, Element, Length, Point,
