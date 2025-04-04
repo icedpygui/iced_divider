@@ -21,6 +21,7 @@ struct App {
     range: RangeInclusive<f32>,
     divider_width: f32,
     handle_width: f32,
+    handle_height: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -39,6 +40,7 @@ impl App {
             range: 0.0..=600.0,
             divider_width: column_widths.iter().sum(),
             handle_width: 4.0, // defaults to 4 just using for demo info
+            handle_height: 200.0,
         }
     }
 
@@ -100,10 +102,11 @@ impl App {
             0,
             self.divider_value,
             self.range.clone(),
+            self.handle_width,
+            self.handle_height,
             Message::DividerChange,
         )
         .height(200.0)
-        .handle_width(self.handle_width)
         .style(|theme, status| {
             divider::transparent(theme, status)
         })

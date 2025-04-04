@@ -101,13 +101,21 @@ pub fn divider<'a, Message, Theme>(
     index: usize,
     value: f32,
     range: std::ops::RangeInclusive<f32>,
+    handle_width: f32,
+    handle_height: f32,
     on_change: impl Fn((usize, f32)) -> Message + 'a,
 ) -> Divider<'a, Message, Theme>
 where
     Message: Clone,
     Theme: Catalog + 'a,
 {
-    Divider::new(index, value, range, on_change)
+    Divider::new(
+            index, 
+            value,
+            range, 
+            handle_width, 
+            handle_height, 
+            on_change)
 }
 
 
@@ -119,9 +127,9 @@ where
     index: usize,
     value: f32,
     range: RangeInclusive<f32>,
-    step: f32,
     handle_width: f32,
     handle_height: f32,
+    step: f32,
     on_change: Box<dyn Fn((usize, f32)) -> Message + 'a>,
     on_release: Option<Message>,
     width: Length,
@@ -149,8 +157,10 @@ where
     ///     `Message`.
     pub fn new<F>(
         index: usize,
-        value: f32, 
+        value: f32,
         range: RangeInclusive<f32>,
+        handle_width: f32,
+        handle_height: f32, 
         on_change: F) 
         -> Self
     where
@@ -172,8 +182,8 @@ where
             index,
             value,
             range,
-            handle_width: 4.0,
-            handle_height: 21.0,
+            handle_width,
+            handle_height,
             step: 1.0,
             on_change: Box::new(on_change),
             on_release: None,
@@ -192,16 +202,6 @@ where
     /// the default on_change message could create too many events.
     pub fn on_release(mut self, on_release: Message) -> Self {
         self.on_release = Some(on_release);
-        self
-    }
-    /// Sets the handle width of a [`Divider`].
-    pub fn handle_width(mut self, handle_width: f32) -> Self {
-        self.handle_width = handle_width;
-        self
-    }
-    /// Sets the handle width of a [`Divider`].
-    pub fn handle_height(mut self, handle_height: f32) -> Self {
-        self.handle_height = handle_height;
         self
     }
     /// Sets the width of the [`Divider`] which usually spans the entire width of the items.
@@ -361,9 +361,11 @@ where
                     Direction::Horizontal => {
                         handle_bounds.x = bounds.x + value as f32;
                         handle_bounds.width = self.handle_width;
+                        handle_bounds.height = self.handle_height;
                     },
                     Direction::Vertical => {
                         handle_bounds.y = bounds.y + value as f32;
+                        handle_bounds.width = self.handle_width;
                         handle_bounds.height = self.handle_height;
                     },
                 }
@@ -427,9 +429,6 @@ where
 
         let style = theme.style(&self.class, status);
         
-        let (handle_width, handle_height) =
-            (self.handle_width, bounds.height);
-
         let value = self.value;
         let (range_start, range_end) = {
             let (start, end) = self.range.clone().into_inner();
@@ -440,29 +439,61 @@ where
         let offset = if range_start >= range_end {
             0.0
         } else {
-            (bounds.width - handle_width) * (value - range_start)
-                / (range_end - range_start)
+            match self.direction {
+                Direction::Horizontal => {
+                    bounds.width * (value - range_start)
+                    / (range_end - range_start)
+                },
+                Direction::Vertical => {
+                    (bounds.height - self.handle_height) * (value - range_start)
+                        / (range_end - range_start)
+                },
+            }
+            
         };
 
-        let handle_y = bounds.y + bounds.height / 2.0;
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: bounds.x + offset,
-                    y: handle_y - handle_height / 2.0,
-                    width: handle_width,
-                    height: handle_height,
-                },
-                border: Border {
-                    radius: style.border_radius,
-                    width: style.border_width,
-                    color: style.border_color,
-                },
-                ..renderer::Quad::default()
+        match self.direction {
+            Direction::Horizontal => {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: Rectangle {
+                            x: bounds.x + offset,
+                            y: bounds.y,
+                            width: self.handle_width,
+                            height: self.handle_height,
+                        },
+                        border: Border {
+                            radius: style.border_radius,
+                            width: style.border_width,
+                            color: style.border_color,
+                        },
+                        ..renderer::Quad::default()
+                    },
+                    style.background,
+                );
             },
-            style.background,
-        );
+            Direction::Vertical => {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: Rectangle {
+                            x: bounds.x,
+                            y: bounds.y + offset,
+                            width: self.handle_width,
+                            height: self.handle_height,
+                        },
+                        border: Border {
+                            radius: style.border_radius,
+                            width: style.border_width,
+                            color: style.border_color,
+                        },
+                        ..renderer::Quad::default()
+                    },
+                    style.background,
+                );
+            },
+        }
+
+        
     }
 
     fn mouse_interaction(
@@ -474,20 +505,33 @@ where
         _renderer: &Renderer,
     ) -> mouse::Interaction {
         let state = tree.state.downcast_ref::<State>();
-        let handle_bounds =  {
-            let value: f64 = self.value.clone().into();
-            let bounds = layout.bounds();
-            let mut handle_bounds = layout.bounds();
-            handle_bounds.x = bounds.x + value as f32;
-            handle_bounds.width = self.handle_width;
-            handle_bounds
+        let bounds = layout.bounds();
+        let handle_bounds = match self.direction {
+            Direction::Horizontal => {
+                let value: f64 = self.value.clone().into();
+                let mut handle_bounds = layout.bounds();
+                handle_bounds.x = bounds.x + value as f32;
+                handle_bounds.width = self.handle_width;
+                handle_bounds.height = self.handle_height;
+                handle_bounds
+            },
+            Direction::Vertical => {
+                let value: f64 = self.value.clone().into();
+                let mut handle_bounds = layout.bounds();
+                handle_bounds.y = bounds.y + value as f32;
+                handle_bounds.width = self.handle_width;
+                handle_bounds.height = self.handle_height;
+                handle_bounds
+            },
         };
+        
         let is_mouse_over = cursor.is_over(handle_bounds);
 
-        if state.is_dragging {
-            mouse::Interaction::ResizingHorizontally
-        } else if is_mouse_over {
-            mouse::Interaction::ResizingHorizontally
+        if state.is_dragging || is_mouse_over{
+            match self.direction {
+                Direction::Horizontal => mouse::Interaction::ResizingHorizontally,
+                Direction::Vertical => mouse::Interaction::ResizingVertically,
+            }
         } else {
             mouse::Interaction::default()
         }
@@ -517,6 +561,7 @@ pub enum Direction {
     /// Vertical resizing
     Vertical,
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct State {
     is_dragging: bool,

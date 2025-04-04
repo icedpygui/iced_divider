@@ -1,7 +1,6 @@
 //! Example
 use iced::widget::{button, center, column, container, stack, text, toggler};
 
-use iced::Length::Fill;
 use iced::{Color, Element, Size};
 
 use std::ops::RangeInclusive;
@@ -36,7 +35,7 @@ impl App {
         App {
             column_heights,
             // adjusting for handle_height of 4
-            divider_value: 198.0,
+            divider_value: 200.0,
             // The range can be shorter than the entire width
             range: 0.0..=400.0,
             divider_height: column_heights.iter().sum(),
@@ -104,16 +103,14 @@ impl App {
             0,
             self.divider_value,
             self.range.clone(),
+            self.handle_width,
+            self.handle_height,
             Message::DividerChange,
         )
         .direction(Direction::Vertical)
-        .height(4.0)
-        .width(Fill)
-        .handle_width(self.handle_width)
-        .handle_height(self.handle_height)
-        // .style(|theme, status| {
-        //     divider::transparent(theme, status)
-        // })
+        .style(|theme, status| {
+            divider::transparent(theme, status)
+        })
         .into());
    
 
