@@ -3,7 +3,7 @@ An Iced widget used to change the size of adjacent containers using the mouse ho
 
 <div align="center">
   
-https://github.com/user-attachments/assets/43cf43e9-42b5-4fb3-b02d-f9548f4ee705
+https://github.com/user-attachments/assets/430cf3d2-660b-4c07-9a23-d7445e43ff1a
 
 </div>
 
