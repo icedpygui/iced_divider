@@ -53,8 +53,11 @@ use std::ops::RangeInclusive;
 ///                             i,
 ///                             self.divider_values[i],
 ///                             self.range.clone(),
+///                             self.handle_width,
+///                             self.handle_height,
 ///                             Message::DividerChange,
 ///                         )
+///                         .direction(Direction::Horizontal) // default direction
 ///                         .into());
 ///         }
 ///     };

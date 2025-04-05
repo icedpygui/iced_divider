@@ -190,7 +190,6 @@ impl <'a> App <'a>{
                         self.row_handle_height, 
                         Message::RowDividerChange)
                         .direction(Direction::Vertical)
-                        .width(self.column_widths.iter().sum::<f32>())
                         .into()
                         );
             }
