@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2025-04-09
+* divider_vertical parameter name widths changed to heights
+* readme wording changes
+
 ## [0.3.0] - 2025-04-09
 * divider_horizontal and divider_vertical added as helpers
 * reduced number of parameters
