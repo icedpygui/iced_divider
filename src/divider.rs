@@ -106,7 +106,7 @@ where
 }
 
 pub fn divider_vertical<'a, Message, Theme>(
-    widths: Vec<f32>,
+    heights: Vec<f32>,
     handle_width: f32,
     handle_height: f32,
     on_change: impl Fn((usize, f32)) -> Message + 'a,
@@ -115,9 +115,11 @@ where
     Message: Clone,
     Theme: Catalog + 'a,
 {
+    let widths = heights;
     let mut handle_offsets = vec![-handle_height/2.0; widths.len()-1];
         // last offset pulled in to keep in bounds
         handle_offsets.extend([-handle_height]);
+        
     Divider::new(
             widths, 
             handle_width, 
