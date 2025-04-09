@@ -7,11 +7,10 @@ use iced::advanced::renderer;
 use iced::touch;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::{
-    self, Color, Element, Length, Point,
+    self, Color, Element, Length, 
     Rectangle, Size, Theme,
 };
 use iced::advanced::{Clipboard, Layout, Shell, Widget};
-use std::ops::RangeInclusive;
 
 /// Dividers let users resize an by moving the divider handle..
 ///
@@ -25,16 +24,14 @@ use std::ops::RangeInclusive;
 /// struct State {
 ///     column_widths: [f32; 2],
 ///     divider_values: Vec<f32>,
-///     range: RangeInclusive<f32>,
 /// }
 ///
 /// #[derive(Debug, Clone)]
 /// enum Message {
-///     DividerChanged((usize, f32)),
+///     DividerChanged((usize, f32, f32)),
 /// }
 ///
 /// fn view(state: &State) -> Element<'_, Message> {
-///     let mut dividers: Vec<Element<Message>> = vec![];
 ///     let mut item_row: Vec<Element<Message>> = vec![];
 ///
 ///     for (i, width) in self.column_widths.iter().enumerate() {
@@ -46,35 +43,22 @@ use std::ops::RangeInclusive;
 ///                         .width(*width)
 ///                         .style(move|theme| container::bordered_box(theme))
 ///                         .into());
-///
-///         // In this case, we don't want one at the end.
-///         if i < self.column_widths.len()-1 {
-///                         dividers.push(divider(
-///                             i,
-///                             self.divider_values[i],
-///                             self.range.clone(),
-///                             self.handle_width,
-///                             self.handle_height,
-///                             Message::DividerChange,
-///                         )
-///                         .direction(Direction::Horizontal) // default direction
-///                         .into());
-///         }
 ///     };
-///
+/// 
+///     let div = divider_horizontal(
+///            self.column_widths.clone(),
+///            self.handle_width,
+///            self.handle_height,
+///            Message::DividerChange
+///        ).into();
+/// 
 ///     // Put the items into a row
 ///     let rw: Element<Message> = 
-///         row(item_row)
-///             .width(self.divider_width)
-///             .into();
-///     // Insert the row at the beginning so that the dividers are on top
-///     // You could add a space in the row and let the dividers be on the
-///     // bottom but then you'll have to play around with the stating values
-///     // of the dividers so that they can be seen, not difficult just much
-///     // easier to let them stay on top.
-///     dividers.insert(0, rw);
+///         row(item_row).into();
+///     
 ///     // put them in a stack
-///     let stk = stack(dividers);
+///     let stk = stack([rw, div]);
+/// 
 ///     // Center everything in the window
 ///     center(stk).into()
 /// }
@@ -100,10 +84,8 @@ use std::ops::RangeInclusive;
 /// }
 /// ```
 
-pub fn divider<'a, Message, Theme>(
-    index: usize,
-    value: f32,
-    range: std::ops::RangeInclusive<f32>,
+pub fn divider_horizontal<'a, Message, Theme>(
+    widths: Vec<f32>,
     handle_width: f32,
     handle_height: f32,
     on_change: impl Fn((usize, f32)) -> Message + 'a,
@@ -112,12 +94,36 @@ where
     Message: Clone,
     Theme: Catalog + 'a,
 {
+    let mut handle_offsets = vec![-handle_width/2.0; widths.len()-1];
+        handle_offsets.extend([-handle_width]);
     Divider::new(
-            index, 
-            value,
-            range, 
+            widths, 
             handle_width, 
-            handle_height, 
+            handle_height,
+            handle_offsets,
+            Direction::Horizontal,
+            on_change)
+}
+
+pub fn divider_vertical<'a, Message, Theme>(
+    widths: Vec<f32>,
+    handle_width: f32,
+    handle_height: f32,
+    on_change: impl Fn((usize, f32)) -> Message + 'a,
+) -> Divider<'a, Message, Theme>
+where
+    Message: Clone,
+    Theme: Catalog + 'a,
+{
+    let mut handle_offsets = vec![-handle_height/2.0; widths.len()-1];
+        // last offset pulled in to keep in bounds
+        handle_offsets.extend([-handle_height]);
+    Divider::new(
+            widths, 
+            handle_width, 
+            handle_height,
+            handle_offsets,
+            Direction::Vertical,
             on_change)
 }
 
@@ -127,16 +133,15 @@ pub struct Divider<'a, Message, Theme = iced::Theme>
 where
     Theme: Catalog,
 {
-    index: usize,
-    value: f32,
-    range: RangeInclusive<f32>,
+    widths: Vec<f32>,
     handle_width: f32,
     handle_height: f32,
-    step: f32,
     on_change: Box<dyn Fn((usize, f32)) -> Message + 'a>,
     on_release: Option<Message>,
     width: Length,
     height: Length,
+    handle_offsets: Vec<f32>,
+    include_last_handle: bool,
     direction: Direction,
     class: Theme::Class<'a>,
 }
@@ -150,49 +155,28 @@ where
     pub const DEFAULT_HEIGHT: f32 = 21.0;
 
     /// Creates a new [`Divider`].
-    ///
-    /// It expects:
-    ///   * the index of the divider, used as an id
-    ///   * the current value of the [`Divider`]
-    ///   * an inclusive range of possible values
-    ///   * a function that will be called when the [`Divider`] is dragged.
-    ///     It receives the new value of the [`Divider`] and must produce a
-    ///     `Message`.
     pub fn new<F>(
-        index: usize,
-        value: f32,
-        range: RangeInclusive<f32>,
+        widths: Vec<f32>,
         handle_width: f32,
-        handle_height: f32, 
+        handle_height: f32,
+        handle_offsets: Vec<f32>,
+        direction: Direction, 
         on_change: F) 
         -> Self
     where
         F: 'a + Fn((usize, f32)) -> Message,
     {
-        let value = if value >= *range.start() {
-            value
-        } else {
-            *range.start()
-        };
-
-        let value = if value <= *range.end() {
-            value
-        } else {
-            *range.end()
-        };
-
         Divider {
-            index,
-            value,
-            range,
+            widths,
             handle_width,
             handle_height,
-            step: 1.0,
             on_change: Box::new(on_change),
             on_release: None,
             width: Length::Fill,
             height: Length::Fill,
-            direction: Direction::Horizontal,
+            handle_offsets,
+            include_last_handle: true,
+            direction,
             class: Theme::default(),
         }
     }
@@ -208,7 +192,6 @@ where
         self
     }
     /// Sets the width of the [`Divider`] which usually spans the entire width of the items.
-    /// If shorter that the entire width, could act as a max width.
     pub fn width(mut self, width: impl Into<Length>) -> Self {
         self.width = width.into();
         self
@@ -220,9 +203,16 @@ where
         self
     }
 
-    /// Sets the step size of the [`Divider`].
-    pub fn step(mut self, step: f32) -> Self {
-        self.step = step;
+    /// Sets the handle offsets for alignment of the [`Divider`].
+    pub fn handle_offsets(mut self, handle_offsets: Vec<f32>) -> Self {
+        self.handle_offsets = handle_offsets;
+        self
+    }
+
+    /// Sets the include_last_handle of the [`Divider`].
+    /// If not included, the total width or height will not change
+    pub fn include_last_handle(mut self, include: bool) -> Self {
+        self.include_last_handle = include;
         self
     }
 
@@ -293,92 +283,49 @@ where
         _viewport: &Rectangle,
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
-        let value: f64 = self.value.clone().into();
         let is_dragging = state.is_dragging;
-
-        let locate = |cursor_position: Point| -> Option<f32> {
-            let bounds = layout.bounds();
+        let total_bounds = layout.bounds();
+        
+        // stores the state
+        let mut widths = vec![];
+        for width in self.widths.iter() {
             match self.direction {
                 Direction::Horizontal => {
-                    let new_value = if cursor_position.x <= bounds.x {
-                        Some(*self.range.start())
-                    } else if cursor_position.x >= bounds.x + bounds.width {
-                        Some(*self.range.end())
-                    } else {
-                        let step = self.step;
-
-                        let start = *self.range.start();
-                        let end = *self.range.end();
-
-                        let percent = f32::from(cursor_position.x - bounds.x)
-                            / f32::from(bounds.width);
-
-                        let steps = (percent * (end - start) / step ).round();
-                        let value = steps * step + start;
-
-                        Some(value.min(end))
-                    };
-
-                    new_value
+                    widths.push(*width);
                 },
                 Direction::Vertical => {
-                    let new_value = if cursor_position.y <= bounds.y {
-                        Some(*self.range.start())
-                    } else if cursor_position.y >= bounds.y + bounds.height {
-                        Some(*self.range.end())
-                    } else {
-                        let step = self.step;
-
-                        let start = *self.range.start();
-                        let end = *self.range.end();
-
-                        let percent = f32::from(cursor_position.y - bounds.y)
-                            / f32::from(bounds.height);
-
-                        let steps = (percent * (end - start) / step ).round();
-                        let value = steps * step + start;
-
-                        Some(value.min(end))
-                    };
-
-                    new_value
+                    widths.push(*width);
                 },
             }
-        };
-        
-        let change = |new_value: f32| {
-            if (self.value - new_value).abs() > f32::EPSILON {
-                shell.publish((self.on_change)((self.index, new_value)));
+        }
+        state.handle_bounds = 
+            get_handle_bounds(
+                total_bounds,
+                &widths,
+                self.handle_width, 
+                self.handle_height,
+                &self.handle_offsets,
+                self.include_last_handle,
+                self.direction);
 
-                self.value = new_value;
-            }
-        };
-        
+        state.width_height_bounds =
+            get_width_height_bounds(
+                total_bounds,
+                &widths,
+                self.handle_width, 
+                self.handle_height, 
+                self.direction);
+
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                let bounds = layout.bounds();
-                let mut handle_bounds = layout.bounds();
+                let index = 
+                    find_mouse_over_handle_bounds(
+                        &state.handle_bounds, cursor);
                 
-                match self.direction {
-                    Direction::Horizontal => {
-                        handle_bounds.x = bounds.x + value as f32;
-                        handle_bounds.width = self.handle_width;
-                        handle_bounds.height = self.handle_height;
-                    },
-                    Direction::Vertical => {
-                        handle_bounds.y = bounds.y + value as f32;
-                        handle_bounds.width = self.handle_width;
-                        handle_bounds.height = self.handle_height;
-                    },
-                }
-                
-                if let Some(cursor_position) =
-                    cursor.position_over(handle_bounds)
-                {
-                    let _ = locate(cursor_position).map(change);
+                if index.is_some() {
                     state.is_dragging = true;
-                
+                    state.index = index.unwrap();
                     return event::Status::Captured;
                 }
             }
@@ -390,147 +337,185 @@ where
                         shell.publish(on_release);
                     }
                     state.is_dragging = false;
+                    state.handle_bounds = vec![];
+                    state.width_height_bounds = vec![];
+                    state.index = 0;
 
                     return event::Status::Captured;
                 }
             }
-            Event::Mouse(mouse::Event::CursorMoved { .. })
-            | Event::Touch(touch::Event::FingerMoved { .. }) => {
+            Event::Mouse(mouse::Event::CursorMoved { position })
+            | Event::Touch(touch::Event::FingerMoved { id: _, position }) => {
                 if is_dragging {
-                    let _ = cursor.position().and_then(locate).map(change);
+                    let end_x = total_bounds.x+total_bounds.width;
+                    let end_y = total_bounds.y+total_bounds.height;
+                    let handle_bounds = state.handle_bounds[state.index];
+                    let w_h_bounds = state.width_height_bounds[state.index];
+                    let handle_count = state.handle_bounds.len();
+                    let w_h_count = state.width_height_bounds.len();
 
-                    return event::Status::Captured;
+                    match self.direction {
+                        Direction::Horizontal => {
+                            if (position.x - handle_bounds.x + handle_bounds.width/2.0).abs() > 0.99 {
+                                let new_value = 
+                                    // Moving left
+                                    if position.x < w_h_bounds.x && state.index == 0 {
+
+                                        state.handle_bounds[state.index].x = w_h_bounds.x;
+                                        (state.index, 0.0)
+                                    } else 
+                                    // Moving left stopping at next divider
+                                    if state.index > 0 && position.x < state.handle_bounds[state.index-1].x {
+
+                                        state.handle_bounds[state.index].x = state.handle_bounds[state.index-1].x;
+                                        (state.index, 0.0)
+                                    } else
+                                    // Moving right: stop at next divider
+                                    if  state.index < handle_count-1 && (state.index < handle_count) && 
+                                        (position.x > state.handle_bounds[state.index+1].x) {
+
+                                        state.handle_bounds[state.index].x = state.handle_bounds[state.index+1].x;
+                                        (state.index, 0.0)
+                                    } else 
+                                    // Moving right: last index and no divider at end
+                                    if (handle_count < w_h_count) && 
+                                        (position.x > end_x-handle_bounds.width/2.0) {
+
+                                        state.handle_bounds[state.index].x = end_x-handle_bounds.width/2.0;
+                                        let new_value = (end_x-handle_bounds.width/2.0-w_h_bounds.x).round();
+                                        (state.index, new_value)
+                                    }
+                                     else {
+                                        // moving
+                                        state.handle_bounds[state.index].x = position.x;
+                                        let new_value = (position.x - w_h_bounds.x).round();
+                                        (state.index, new_value)
+                                    };
+                                
+                                shell.publish((self.on_change)(new_value));
+                                return event::Status::Captured;
+                            }
+                        },
+                        Direction::Vertical => {
+                            if (position.y - handle_bounds.y + handle_bounds.height/2.0).abs() > 0.99 {
+                                let new_value = 
+                                    // Moving up
+                                    if position.y < w_h_bounds.y && state.index == 0 {
+
+                                        state.handle_bounds[state.index].y = w_h_bounds.y;
+                                        (state.index, 0.0)
+                                    } else 
+                                    // Moving left stopping at next divider
+                                    if state.index > 0 && position.y < state.handle_bounds[state.index-1].y {
+
+                                        state.handle_bounds[state.index].y = state.handle_bounds[state.index-1].y;
+                                        (state.index, 0.0)
+                                    } else
+                                    // Moving right: stop at next divider
+                                    if  state.index < handle_count-1 && (state.index < handle_count) && 
+                                        (position.y > state.handle_bounds[state.index+1].y) {
+
+                                        state.handle_bounds[state.index].y = state.handle_bounds[state.index+1].y;
+                                        (state.index, 0.0)
+                                    } else 
+                                    // Moving right: last index and no divider at end
+                                    if (handle_count < w_h_count) && 
+                                        (position.y > end_y-handle_bounds.height/2.0) {
+                                            
+                                        state.handle_bounds[state.index].y = end_y-handle_bounds.height/2.0;
+                                        let new_value = (end_y-handle_bounds.height/2.0-w_h_bounds.y).round();
+                                        (state.index, new_value)
+                                    }
+                                     else {
+                                        // moving
+                                        state.handle_bounds[state.index].y = position.y;
+                                        let new_value = (position.y - w_h_bounds.y).round();
+                                        (state.index, new_value)
+                                    };
+                                
+                                shell.publish((self.on_change)(new_value));
+                                return event::Status::Captured;
+                            }
+                        },
+                    }
                 }
-            }
+            },
             _ => {}
         }
 
         event::Status::Ignored
-    }
 
+    }
+    
     fn draw(
         &self,
         tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &renderer::Style,
-        layout: Layout<'_>,
+        _layout: Layout<'_>,
         cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_ref::<State>();
-        let bounds = layout.bounds();
-        let is_mouse_over = cursor.is_over(bounds);
+        let is_mouse_over = 
+            find_mouse_over_handle_bounds(
+                &state.handle_bounds,
+                cursor,);
         
         let status = if state.is_dragging {
             Status::Dragged
-        } else if is_mouse_over {
+        } else if is_mouse_over.is_some() {
             Status::Hovered
         } else {
             Status::Active
         };
 
         let style = theme.style(&self.class, status);
-        
-        let value = self.value;
-        let (range_start, range_end) = {
-            let (start, end) = self.range.clone().into_inner();
 
-            (start, end)
-        };
-
-        let offset = if range_start >= range_end {
-            0.0
-        } else {
-            match self.direction {
-                Direction::Horizontal => {
-                    bounds.width * (value - range_start)
-                    / (range_end - range_start)
+        for i in 0..self.widths.len() {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: state.width_height_bounds[i],
+                    ..renderer::Quad::default()
                 },
-                Direction::Vertical => {
-                    (bounds.height - self.handle_height) * (value - range_start)
-                        / (range_end - range_start)
-                },
+                Background::Color(Color::TRANSPARENT),
+            );
+            // fill with the handle
+            if !self.include_last_handle && i == self.widths.len()-1{
+                break;
             }
-            
-        };
-
-        match self.direction {
-            Direction::Horizontal => {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: Rectangle {
-                            x: bounds.x + offset,
-                            y: bounds.y,
-                            width: self.handle_width,
-                            height: self.handle_height,
-                        },
-                        border: Border {
-                            radius: style.border_radius,
-                            width: style.border_width,
-                            color: style.border_color,
-                        },
-                        ..renderer::Quad::default()
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: state.handle_bounds[i],
+                    border: Border {
+                        radius: style.border_radius,
+                        width: style.border_width,
+                        color: style.border_color,
                     },
-                    style.background,
-                );
-            },
-            Direction::Vertical => {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: Rectangle {
-                            x: bounds.x,
-                            y: bounds.y + offset,
-                            width: self.handle_width,
-                            height: self.handle_height,
-                        },
-                        border: Border {
-                            radius: style.border_radius,
-                            width: style.border_width,
-                            color: style.border_color,
-                        },
-                        ..renderer::Quad::default()
-                    },
-                    style.background,
-                );
-            },
+                    ..renderer::Quad::default()
+                },
+                style.background,
+            );
         }
 
-        
     }
 
     fn mouse_interaction(
         &self,
         tree: &Tree,
-        layout: Layout<'_>,
+        _layout: Layout<'_>,
         cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
         let state = tree.state.downcast_ref::<State>();
-        let bounds = layout.bounds();
-        let handle_bounds = match self.direction {
-            Direction::Horizontal => {
-                let value: f64 = self.value.clone().into();
-                let mut handle_bounds = layout.bounds();
-                handle_bounds.x = bounds.x + value as f32;
-                handle_bounds.width = self.handle_width;
-                handle_bounds.height = self.handle_height;
-                handle_bounds
-            },
-            Direction::Vertical => {
-                let value: f64 = self.value.clone().into();
-                let mut handle_bounds = layout.bounds();
-                handle_bounds.y = bounds.y + value as f32;
-                handle_bounds.width = self.handle_width;
-                handle_bounds.height = self.handle_height;
-                handle_bounds
-            },
-        };
-        
-        let is_mouse_over = cursor.is_over(handle_bounds);
+        let is_mouse_over = 
+            find_mouse_over_handle_bounds(
+                &state.handle_bounds,  
+                cursor);
 
-        if state.is_dragging || is_mouse_over{
+        if state.is_dragging || is_mouse_over.is_some(){
             match self.direction {
                 Direction::Horizontal => mouse::Interaction::ResizingHorizontally,
                 Direction::Vertical => mouse::Interaction::ResizingVertically,
@@ -555,6 +540,118 @@ where
     }
 }
 
+fn get_handle_bounds(
+    bounds: Rectangle,
+    widths_heights: &Vec<f32>,
+    handle_width: f32,
+    handle_height: f32,
+    handle_offsets: &Vec<f32>,
+    include_last_handle: bool,
+    direction: Direction,
+    ) -> Vec<Rectangle> 
+{
+    let mut handle_bounds = vec![];
+    let mut start = match direction {
+            Direction::Horizontal => bounds.x,
+            Direction::Vertical => bounds.y,
+        };
+        for (i, width_height) in widths_heights.iter().enumerate() {
+            
+            if i == widths_heights.len()-1 {
+                if include_last_handle {
+                    start += width_height;
+                } else {
+                    break;
+                }
+            } else {
+                start += width_height;
+            }
+
+            let rect = match direction {
+                Direction::Horizontal => {
+                    Rectangle{ 
+                        x: start+handle_offsets[i], 
+                        y: bounds.y, 
+                        width: handle_width, 
+                        height: handle_height,
+                    }
+                },
+                Direction::Vertical => {
+                    Rectangle{
+                        x: bounds.x,
+                        y: start+handle_offsets[i],
+                        width: handle_width,
+                        height: handle_height,
+                    }
+                },
+            };
+                
+            handle_bounds.push(rect);
+
+        }
+        handle_bounds
+}
+
+fn get_width_height_bounds(
+    bounds: Rectangle,
+    widths_heights: &Vec<f32>,
+    handle_width: f32,
+    handle_height: f32,
+    direction: Direction,
+    ) -> Vec<Rectangle> 
+{
+    let mut w_h_bounds = vec![];
+    let mut start = match direction {
+            Direction::Horizontal => bounds.x,
+            Direction::Vertical => bounds.y,
+        };
+        for width_height in widths_heights.iter() {
+            let rect = match direction {
+                Direction::Horizontal => {
+                    Rectangle{ 
+                        x: start, 
+                        y: bounds.y, 
+                        width: *width_height, 
+                        height: handle_height,
+                    }
+                },
+                Direction::Vertical => {
+                    Rectangle{
+                        x: bounds.x,
+                        y: start,
+                        width: handle_width,
+                        height: *width_height,
+                    }
+                },
+            };
+                
+            w_h_bounds.push(rect);
+
+            match direction {
+                Direction::Horizontal => {
+                    start += width_height;
+                },
+                Direction::Vertical => {
+                    start += width_height;
+                },
+            }
+            
+        }
+        w_h_bounds
+}
+
+fn find_mouse_over_handle_bounds(
+    handle_bounds: &Vec<Rectangle>,
+    cursor: mouse::Cursor) 
+    -> Option<usize> {
+        for (index, bounds) in handle_bounds.iter().enumerate() {
+            if cursor.is_over(*bounds) {
+                return Some(index)
+            }
+        }
+        None
+}
+
 /// The direction of [`Scrollable`].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Direction {
@@ -565,9 +662,12 @@ pub enum Direction {
     Vertical,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 struct State {
     is_dragging: bool,
+    index: usize,
+    handle_bounds: Vec<Rectangle>,
+    width_height_bounds: Vec<Rectangle>,
 }
 
 /// The possible status of a [`Divider`].
@@ -643,4 +743,138 @@ pub fn transparent(theme: &Theme, status: Status) -> Style {
     let mut style = primary(theme, status);
     style.background = Color::TRANSPARENT.into();
     style
+}
+
+
+
+#[test]
+fn test_get_handle_bounds() {
+    let widths_heights = vec![100.0, 100.0, 100.0, 100.0];
+    let hz_bounds = Rectangle { x: 50.0, 
+                                        y: 50.0, 
+                                        width: 462.0, 
+                                        height: 21.0 };
+    let hz_handle_width = 4.0;
+    let hz_handle_height = 21.0;
+    let mut hz_handle_offsets = vec![-hz_handle_height/2.0; widths_heights.len()-1];
+        hz_handle_offsets.extend([-hz_handle_height]);
+    let hz_include_last_handle =true; 
+    let hz_direction = Direction::Horizontal;
+
+    let vt_bounds = Rectangle { x: 50.0, 
+                                        y: 50.0, 
+                                        width: 100.0, 
+                                        height: 462.0 };
+    let vt_handle_width = 100.0;
+    let vt_handle_height = 4.0;
+    let mut vt_handle_offsets = vec![-vt_handle_height/2.0; widths_heights.len()-1];
+        vt_handle_offsets.extend([-vt_handle_height]);
+    let vt_include_last_handle =true;
+    let vt_direction = Direction::Vertical;
+
+    let hz_bounds = 
+        get_handle_bounds(
+            hz_bounds, 
+            &widths_heights, 
+            hz_handle_width, 
+            hz_handle_height,
+            &hz_handle_offsets,
+            hz_include_last_handle, 
+            hz_direction);
+
+    let vt_bounds = 
+        get_handle_bounds(
+            vt_bounds, 
+            &widths_heights, 
+            vt_handle_width, 
+            vt_handle_height,
+            &vt_handle_offsets,
+            vt_include_last_handle, 
+            vt_direction);
+
+    let hz_results = vec![
+        Rectangle { x: 139.5, y: 50.0, width: 4.0, height: 21.0 },
+        Rectangle { x: 239.5, y: 50.0, width: 4.0, height: 21.0 },
+        Rectangle { x: 339.5, y: 50.0, width: 4.0, height: 21.0 },
+        Rectangle { x: 429.0, y: 50.0, width: 4.0, height: 21.0 }];
+
+    let vt_results = vec![
+        Rectangle { x: 50.0, y: 148.0, width: 100.0, height: 4.0 },
+        Rectangle { x: 50.0, y: 248.0, width: 100.0, height: 4.0 },
+        Rectangle { x: 50.0, y: 348.0, width: 100.0, height: 4.0 },
+        Rectangle { x: 50.0, y: 446.0, width: 100.0, height: 4.0 }];
+        
+    assert_eq!(hz_results, hz_bounds);
+    assert_eq!(vt_results, vt_bounds);
+
+}
+
+#[test]
+fn test_find_mouse_over_handle_bounds() {
+    let handle_bounds = vec![
+        Rectangle {x: 150.0,y: 50.0,width: 4.0,height: 21.0 },
+        Rectangle { x: 254.0, y: 50.0, width: 4.0, height: 21.0 },
+        Rectangle { x: 358.0, y: 50.0, width: 4.0, height: 21.0 },
+        Rectangle { x: 462.0, y: 50.0, width: 4.0, height: 21.0 }];
+
+    let pass_cursor = mouse::Cursor::Available(iced::Point { x: 360.0, y: 55.0 });
+
+    assert_eq!(find_mouse_over_handle_bounds(&handle_bounds, pass_cursor), Some(2));
+
+    let fail_cursor = mouse::Cursor::Available(iced::Point { x: 360.0, y: 75.0 });
+
+     assert_eq!(find_mouse_over_handle_bounds(&handle_bounds, fail_cursor), None);
+
+}
+
+#[test] 
+fn test_get_width_height_bounds() {
+    let widths_heights = vec![100.0, 100.0, 100.0, 100.0];
+    let hz_bounds = Rectangle { x: 50.0, 
+                                        y: 50.0, 
+                                        width: 416.0, 
+                                        height: 21.0 };
+    let hz_handle_width = 4.0;
+    let hz_handle_height = 21.0;
+    let hz_direction = Direction::Horizontal;
+
+    let vt_bounds = Rectangle { x: 50.0, 
+                                        y: 50.0, 
+                                        width: 100.0, 
+                                        height: 416.0 };
+    let vt_handle_width = 100.0;
+    let vt_handle_height = 4.0;
+    let vt_direction = Direction::Vertical;
+
+    let hz_bounds = 
+        get_width_height_bounds(
+            hz_bounds, 
+            &widths_heights, 
+            hz_handle_width, 
+            hz_handle_height, 
+            hz_direction);
+
+    let vt_bounds = 
+        get_width_height_bounds(
+            vt_bounds, 
+            &widths_heights, 
+            vt_handle_width, 
+            vt_handle_height, 
+            vt_direction);
+    
+    let hz_results = vec![
+        Rectangle { x: 50.0, y: 50.0, width: 100.0, height: 21.0 },
+        Rectangle { x: 150.0, y: 50.0, width: 100.0, height: 21.0 },
+        Rectangle { x: 250.0, y: 50.0, width: 100.0, height: 21.0 },
+        Rectangle { x: 350.0, y: 50.0, width: 100.0, height: 21.0 }];
+
+    let vt_results = vec![
+        Rectangle { x: 50.0, y: 50.0, width: 100.0, height: 100.0 },
+        Rectangle { x: 50.0, y: 150.0, width: 100.0, height: 100.0 },
+        Rectangle { x: 50.0, y: 250.0, width: 100.0, height: 100.0 },
+        Rectangle { x: 50.0, y: 350.0, width: 100.0, height: 100.0 }];
+
+    assert_eq!(hz_results, hz_bounds);
+    assert_eq!(vt_results, vt_bounds);
+
 }

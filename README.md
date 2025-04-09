@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/430cf3d2-660b-4c07-9a23-d7445e43ff1a
 
 ## Easy to Use
 
-* Using a stack, place the dividers(s) over your containers.
+* Using a stack, place the divider over your containers.
 * Use the value of the divider to place the handle over the edge of the container.
 * Resize the containers using the return message when the handle is moved.
 * The message routine is simple, see examples, and is esssentially the same for all situations.

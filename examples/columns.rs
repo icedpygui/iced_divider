@@ -1,46 +1,40 @@
 //! Example
-use iced::widget::{button, center, column, container, row, stack, text, toggler};
 
-use iced::{Color, Element, Size};
+use iced::widget::{button, column, container, row, stack, text};
 
-use std::ops::RangeInclusive;
-use iced_divider::divider;
+use iced::{Color, Element, Padding, Size};
+
+use iced_divider::divider::{self, divider_horizontal};
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
         .theme(App::theme)
         .antialiasing(true)
         .centered()
-        .window_size(Size::new(600.0, 400.0))
+        .window_size(Size::new(700.0, 400.0))
         .run()
 }
 
 struct App {
-    column_widths: [f32; 2],
-    divider_value: f32,
-    range: RangeInclusive<f32>,
-    divider_width: f32,
+    column_widths1: Vec<f32>,
+    column_widths2: Vec<f32>,
     handle_width: f32,
     handle_height: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
-    DividerChange((usize, f32)),
+    DividerChange1((usize, f32)),
+    DividerChange2((usize, f32)),
 }
 
 impl App {
     fn new() -> Self {
-        let column_widths = [300.0; 2];
         App {
-            column_widths,
-            // adjusting for handle_width of 4
-            divider_value: 298.0,
-            // The range can be shorter than the entire width
-            range: 0.0..=600.0,
-            divider_width: column_widths.iter().sum(),
+            column_widths1: vec![300.0; 2],
+            column_widths2: vec![300.0; 2],
             handle_width: 4.0, // defaults to 4 just using for demo info
-            handle_height: 200.0,
+            handle_height: 300.0,
         }
     }
 
@@ -54,80 +48,79 @@ impl App {
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::DividerChange((index, value)) => {
-                // if you have more than 2 columns use the method 
-                // in the texts or table example
+            Message::DividerChange1((index, value)) => {
+                let diff = self.column_widths1[index] - value;
 
                 // Adjust the left side
-                self.column_widths[index] = value;
+                self.column_widths1[index] = value;
                 
                 // Adjust the right side
-                self.column_widths[index+1] += self.divider_value - value;
-                
-                self.divider_value = value;
+                if index < self.column_widths1.len()-1 {
+                     self.column_widths1[index+1] += diff;
+                }
             },
+
+            Message::DividerChange2((index, value)) => {
+                let diff = self.column_widths2[index] - value;
+
+                // Adjust the left side
+                self.column_widths2[index] = value;
+                
+                // Adjust the right side
+                if index < self.column_widths2.len()-1 {
+                     self.column_widths2[index+1] += diff;
+                }
+            },
+
         }
     }
 
     fn view(&self) -> Element<Message> {
-
-        let mut dividers: Vec<Element<Message>> = vec![];
-        let mut item_row: Vec<Element<Message>> = vec![];
-
-        for width in self.column_widths.iter() {
-            // Add whatever container you want.
-            item_row.push(
-                container(
-                column![
-                    text(format!("Width = {}", width)),
-                    button("Some Button"),
-                    button("Another button"),
-                    toggler(false).label("Toggler"),
-                    ]           
-                    .width(*width)
-                ).style(|_|{
-                    let mut style = container::Style::default();
-                    style.border.color = Color::WHITE;
-                    style.border.width = 1.0;
-                    style
-                }
-            ).into()
-            );
-        };
         
-        // Make the divider and add to a vec for later use
-        // In theis case, the containers have a border so
-        // we'll set the divider background to transparent.
-        dividers.push(divider::divider(
-            0,
-            self.divider_value,
-            self.range.clone(),
+        let div1 = divider_horizontal(
+            self.column_widths1.clone(),
             self.handle_width,
             self.handle_height,
-            Message::DividerChange,
+            Message::DividerChange1
         )
-        .height(200.0)
         .style(|theme, status| {
             divider::transparent(theme, status)
         })
-        .into());
-   
+        .into();
+
+        let div2 = divider_horizontal(
+            self.column_widths2.clone(),
+            self.handle_width,
+            self.handle_height,
+            Message::DividerChange2
+        )
+        .style(|theme, status| {
+            divider::transparent(theme, status)
+        })
+        // excludes the last divider to prevent total width resize
+        .include_last_handle(false)
+        .into();
+        
+        let str1 = 
+            "By including the last \ndivider(default)\nThe column can be \nexpanded/shortened";
+
+        let str2 = 
+            "The last divider is excluded\nfixing the total width";
 
         // Put the columns into a row
-        let rw: Element<Message> = 
-            row(item_row)
-                .width(self.divider_width)
-                .into();
+        let rw1 = row(get_children(&self.column_widths1, str1)).into();
+        let rw2 = row(get_children(&self.column_widths2, str2)).into();
 
-        // Insert the row at the beginning so that the dividers are on top.
-        // You could add a space in the row and let the dividers be on the
-        // bottom.  Since the stack is shrink length, the width of the
-        // divider (not divider_handle) will be the with of the stack.
-        dividers.insert(0, rw);
         // put them in a stack
-        let stk = stack(dividers);
-        // Center everything in the window
-        center(stk).into()
+        let stk1 = stack([rw1, div1]).into();
+        let stk2 = stack([rw2, div2]).into();
+
+        let col = column([stk1, stk2]).spacing(20);
+
+        // Put in a container
+        container(col)
+        .padding(Padding{ top: 50.0, right: 0.0, bottom: 0.0, left: 50.0 })
+        .into()
 
     }
 }
@@ -138,4 +131,28 @@ impl Default for App {
     }
 }
 
+fn get_children<'a>(widths: &Vec<f32>, txt: &'a str) -> Vec<Element<'a, Message>> {
 
+    let mut items: Vec<Element<Message>> = vec![];
+
+    for width in widths.iter() {
+        // Add whatever container you want.
+        items.push(
+            container(
+            column![
+                text(format!("Width = {}", width)),
+                text(txt),
+                button("Some Button"),
+                button("Another button"),
+                ]           
+                .width(*width)
+            ).style(|_|{
+                let mut style = container::Style::default();
+                style.border.color = Color::WHITE;
+                style.border.width = 1.0;
+                style
+            }).into()
+        );
+    };
+    items
+}

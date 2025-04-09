@@ -3,8 +3,7 @@ use iced::widget::{button, center, column, container, stack, text, toggler};
 
 use iced::{Color, Element, Size};
 
-use std::ops::RangeInclusive;
-use iced_divider::divider::{self, Direction};
+use iced_divider::divider::{self, divider_vertical};
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
@@ -16,10 +15,7 @@ pub fn main() -> iced::Result {
 }
 
 struct App {
-    column_heights: [f32; 2],
-    divider_value: f32,
-    range: RangeInclusive<f32>,
-    divider_height: f32,
+    column_heights: Vec<f32>,
     handle_width: f32,
     handle_height: f32,
 }
@@ -31,14 +27,8 @@ enum Message {
 
 impl App {
     fn new() -> Self {
-        let column_heights = [200.0; 2];
         App {
-            column_heights,
-            // adjusting for handle_height of 4
-            divider_value: 200.0,
-            // The range can be shorter than the entire width
-            range: 0.0..=400.0,
-            divider_height: column_heights.iter().sum(),
+            column_heights: vec![200.0; 2],
             handle_width: 200.0,
             handle_height: 4.0,
         }
@@ -55,23 +45,21 @@ impl App {
     fn update(&mut self, message: Message) {
         match message {
             Message::DividerChange((index, value)) => {
-                // if you have more than 2 columns use the method 
-                // in the texts or table example
+                let diff = self.column_heights[index] - value;
 
                 // Adjust the left side
                 self.column_heights[index] = value;
                 
                 // Adjust the right side
-                self.column_heights[index+1] += self.divider_value - value;
-                
-                self.divider_value = value;
+                if index < self.column_heights.len()-1 {
+                     self.column_heights[index+1] += diff;
+                }
             },
         }
     }
 
     fn view(&self) -> Element<Message> {
 
-        let mut dividers: Vec<Element<Message>> = vec![];
         let mut item_col: Vec<Element<Message>> = vec![];
 
         for height in self.column_heights.iter() {
@@ -96,37 +84,29 @@ impl App {
             );
         };
         
-        // Make the divider and add to a vec for later use
+        // Make the divider
         // In theis case, the containers have a border so
         // we'll set the divider background to transparent.
-        dividers.push(divider::divider(
-            0,
-            self.divider_value,
-            self.range.clone(),
+        let div = divider_vertical(
+            self.column_heights.clone(),
             self.handle_width,
             self.handle_height,
             Message::DividerChange,
         )
-        .direction(Direction::Vertical)
         .style(|theme, status| {
             divider::transparent(theme, status)
         })
-        .into());
+        .into();
    
 
         // Put the columns into a row
         let col: Element<Message> = 
-            column(item_col)
-                .height(self.divider_height)
-                .into();
+            column(item_col).into();
 
-        // Insert the row at the beginning so that the dividers are on top.
-        // You could add a space in the row and let the dividers be on the
-        // bottom.  Since the stack is shrink length, the width of the
-        // divider (not divider_handle) will be the with of the stack.
-        dividers.insert(0, col);
         // put them in a stack
-        let stk = stack(dividers);
+        let stk = 
+            stack([col, div]);
+
         // Center everything in the window
         center(stk).into()
 

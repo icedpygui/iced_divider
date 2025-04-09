@@ -5,8 +5,7 @@ use iced::widget::{center, container, row, stack, text};
 use iced::Length::Fill;
 use iced::{Element, Size};
 
-use std::ops::RangeInclusive;
-use iced_divider::divider::divider;
+use iced_divider::divider::divider_horizontal;
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
@@ -18,10 +17,7 @@ pub fn main() -> iced::Result {
 }
 
 struct App {
-    column_widths: [f32; 4],
-    divider_values: Vec<f32>,
-    range: RangeInclusive<f32>,
-    divider_width: f32,
+    column_widths: Vec<f32>,
     handle_width: f32,
     handle_height: f32,
 }
@@ -33,13 +29,9 @@ enum Message {
 
 impl App {
     fn new() -> Self {
-        let column_widths = [100.0; 4];
+        let column_widths = vec![100.0; 4];
         App {
             column_widths,
-            // Since the default width is 4, adjust the value to line up with the item border
-            divider_values: vec![98.0, 198.0, 298.0],
-            range: 0.0..=400.0,
-            divider_width: column_widths.iter().sum::<f32>(),
             handle_width: 4.0,
             handle_height: 21.0,
         }
@@ -56,73 +48,59 @@ impl App {
     fn update(&mut self, message: Message) {
         match message {
             Message::DividerChange((index, value)) => {
-                // Note: this is the divider index not the column index
-                // By using the divider positions only, one doesn't need
-                // to keep track of the offset values from the original ones
-                // unless a reset is wanted.
+                let diff = self.column_widths[index] - value;
 
                 // Adjust the left side
-                if index == 0 {
-                    self.column_widths[index] = value;
-                } else {
-                    self.column_widths[index] = value - self.divider_values[index-1];
-                }
-                // Adjust the right side
-                if index == self.divider_values.len()-1 {
-                    self.column_widths[index+1] = self.divider_width - value;
-                } else {
-                    self.column_widths[index+1] = self.divider_values[index+1] - value;
-                }
+                self.column_widths[index] = value;
                 
-                self.divider_values[index] = value;
+                // Adjust the right side
+                if index < self.column_widths.len()-1 {
+                     self.column_widths[index+1] += diff;
+                }
             },
         }
     }
 
     fn view(&self) -> Element<Message> {
 
-        let mut dividers: Vec<Element<Message>> = vec![];
         let mut item_row: Vec<Element<Message>> = vec![];
 
         for (i, width) in self.column_widths.iter().enumerate() {
             // Add whatever container you want.
-            item_row.push(container(
-                            text(self.column_widths[i].to_string())
-                                    .width(Fill)
-                                    .align_x(Horizontal::Center))
-                            .width(*width)
-                            .style(move|theme| container::bordered_box(theme))
-                            .into());
+            item_row.push(
+                container(
+                    text(self.column_widths[i].to_string())
+                            .width(Fill)
+                            .align_x(Horizontal::Center)
+                    )
+                    .width(*width)
+                    .style(move|theme| container::bordered_box(theme))
+                    .into());
+        }
+        
+        let div = divider_horizontal(
+            self.column_widths.clone(),
+            self.handle_width,
+            self.handle_height,
+            Message::DividerChange
+        )
+        // using include last handle will prevent the user 
+        // from changing the total width
+        // since no handle at the end
+        // .include_last_handle(false)
+        .into();
 
-            // In this case, I don't want one at the end.
-            if i < self.column_widths.len()-1 {
-                            dividers.push(divider(
-                                i,
-                                self.divider_values[i],
-                                self.range.clone(),
-                                self.handle_width,
-                                self.handle_height,
-                                Message::DividerChange,
-                            )
-                            .into());
-            }
-        };
 
         // Put the items into  a row
         let rw: Element<Message> = 
-            row(item_row)
-                .width(self.divider_width)
-                .into();
-        // Insert the row at the beginning so that the dividers are on top
-        // You could add a space in the row and let the dividers be on the
-        // bottom but then you'll have to play around with the values
-        // if the dividers so that they can be seen, not difficult just much
-        // easier to let them stay on top.
-        dividers.insert(0, rw);
-        // put them in a stack
-        let stk = stack(dividers);
+            row(item_row).into();
+        
+        // Put them in a stack with div on top
+        let stk = stack([rw, div]);
+
         // Center everything in the window
         center(stk).into()
+
     }
 }
 

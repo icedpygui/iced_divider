@@ -1,12 +1,10 @@
-
-
+//Table Demo
 use iced::alignment::Horizontal;
 use iced::widget::{button, center, column, container, row, stack, text, vertical_space};
 use iced::Length::Fill;
 use iced::{Element, Size};
 
-use std::ops::RangeInclusive;
-use iced_divider::divider::{divider, Direction};
+use iced_divider::divider::{divider_horizontal, divider_vertical};
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
@@ -18,17 +16,11 @@ pub fn main() -> iced::Result {
 }
 
 struct App <'a>{
-    column_names: [&'a str; 3],
-    column_widths: [f32; 3],
-    column_divider_values: Vec<f32>,
-    column_range: RangeInclusive<f32>,
-    column_divider_width: f32,
+    column_names: Vec<&'a str>,
+    column_widths: Vec<f32>,
     row_heights: Vec<f32>,
-    row_divider_values: Vec<f32>,
-    row_range: RangeInclusive<f32>,
-    row_divider_height: f32,
-    column_handle_width: f32,
-    column_handle_height: f32,
+    header_handle_width: f32,
+    header_handle_height: f32,
     row_handle_width: f32,
     row_handle_height: f32,
 }
@@ -41,23 +33,13 @@ enum Message {
 
 impl <'a> App <'a>{
     fn new() -> Self {
-        let column_widths = [100.0; 3];
-        let row_heights = vec![50.0; 3];
         App {
-            column_names: ["Col 1" ,"Col 2" ,"Col 3"],
-            column_widths,
-            // Since the default width is 4, adjust the value to line up with the item border
-            column_divider_values: vec![98.0, 200.0],
-            column_range: 0.0..=300.0,
-            // The divider widths span the entire width of the columns
-            column_divider_width: column_widths.iter().sum::<f32>(),
-            row_heights: row_heights.clone(),
-            row_divider_values: vec![50.0, 100.0],
-            row_range: 0.0..=150.0,
-            row_divider_height: row_heights.iter().sum::<f32>(),
-            column_handle_width: 4.0,
-            column_handle_height: 21.0,
-            row_handle_width: column_widths.iter().sum::<f32>(),
+            column_names: vec!["Col 1" ,"Col 2" ,"Col 3"],
+            column_widths: vec![100.0; 3],
+            row_heights: vec![50.0; 3],
+            header_handle_width: 4.0,
+            header_handle_height: 21.0,
+            row_handle_width: 300.0,
             row_handle_height: 4.0,
         }
     }
@@ -73,53 +55,34 @@ impl <'a> App <'a>{
     fn update(&mut self, message: Message) {
         match message {
             Message::ColumnDividerChange((index, value)) => {
-                // Note: this is the divider index not the column index
-                // By using the divider positions only, one doesn't need
-                // to keep track of the offset values from the original ones
-                // unless a reset is wanted.
-                
+            
+                let diff = self.column_widths[index] - value;
+
                 // Adjust the left side
-                if index == 0 {
-                    self.column_widths[index] = value;
-                } else {
-                    self.column_widths[index] = value - self.column_divider_values[index-1];
-                }
-                // Adjust the right side
-                if index == self.column_divider_values.len()-1 {
-                    self.column_widths[index+1] = self.column_divider_width - value;
-                } else {
-                    self.column_widths[index+1] = self.column_divider_values[index+1] - value;
-                }
+                self.column_widths[index] = value;
                 
-                self.column_divider_values[index] = value;
+                // Adjust the right side
+                if index < self.column_widths.len()-1 {
+                     self.column_widths[index+1] += diff;
+                }
             },
             Message::RowDividerChange((index, value)) => {
-                // Note: this is the divider index not the column index
-                // By using the divider positions only, one doesn't need
-                // to keep track of the offset values from the original ones
-                // unless a reset is wanted.
+
+                let diff = self.row_heights[index] - value;
+
+                // Adjust the left side
+                self.row_heights[index] = value;
                 
-                // Adjust the above
-                if index == 0 {
-                    self.row_heights[index] = value;
-                } else {
-                    self.row_heights[index] = value - self.row_divider_values[index-1];
+                // Adjust the right side
+                if index < self.row_heights.len()-1 {
+                     self.row_heights[index+1] += diff;
                 }
-                // Adjust the below                    
-                if index == self.row_divider_values.len()-1 {
-                    self.row_heights[index+1] = self.row_divider_height - value;
-                } else {
-                    self.row_heights[index+1] = self.row_divider_values[index+1] - value;
-                }
-                
-                self.row_divider_values[index] = value;
             },
         }
     }
 
     fn view(&self) -> Element<Message> {
 
-        let mut header_dividers: Vec<Element<Message>> = vec![];
         let mut item_row: Vec<Element<Message>> = vec![];
 
         for (i, width) in self.column_widths.iter().enumerate() {
@@ -133,38 +96,25 @@ impl <'a> App <'a>{
                             .style(move|theme| container::bordered_box(theme))
                             .into());
 
-            // In this case, I don't want one at the end.
-            if i < self.column_widths.len()-1 {
-                            header_dividers.push(divider(
-                                i,
-                                self.column_divider_values[i],
-                                self.column_range.clone(),
-                                self.column_handle_width,
-                                self.column_handle_height,
-                                Message::ColumnDividerChange,
-                            )
-                            .into());
-            }
         };
 
-        // Put the items into  a row
-        let header_row: Element<Message> = 
-            row(item_row)
-                .width(self.column_divider_width)
+        let header_divider = 
+            divider_horizontal(
+                self.column_widths.clone(), 
+                self.header_handle_width, 
+                self.header_handle_height, 
+                Message::ColumnDividerChange)
                 .into();
-        // Insert the row at the beginning so that the dividers are on top
-        // You could add a space in the row and let the dividers be on the
-        // bottom but then you'll have to play around with the values
-        // if the dividers so that they can be seen, not difficult just much
-        // easier to let them stay on top.
-        header_dividers.insert(0, header_row);
 
+        // Put the items into  a row
+        let header: Element<Message> = 
+            row(item_row).into();
+        
         // put them in a stack
-        let header_stk = stack(header_dividers);
+        let header_stk = stack([header, header_divider]);
 
         // Add some rows
         let mut rows: Vec<Element<Message>> = vec![];
-        let mut row_dividers: Vec<Element<Message>> = vec![];
 
         for index in 0..3 {
             rows.push(row![
@@ -178,25 +128,21 @@ impl <'a> App <'a>{
                     .height(Fill)
                     .style(move|theme| container::bordered_box(theme)),
             ].height(self.row_heights[index]).into());
-
-            // Not putting a divider on last row
-            // if you do, some changes will have to be made in the callback message
-            if index != 2 {
-                row_dividers.push(divider(
-                        index, 
-                        self.row_divider_values[index], 
-                        self.row_range.clone(), 
-                        self.row_handle_width, 
-                        self.row_handle_height, 
-                        Message::RowDividerChange)
-                        .direction(Direction::Vertical)
-                        .into()
-                        );
-            }
         }
-        // insert the rows at the beginning so the dividers are on top.
-        row_dividers.insert(0, column(rows).into());
-        let row_stk = stack(row_dividers);
+
+        // add the divider
+        let row_div = 
+            divider_vertical(
+                self.row_heights.clone(), 
+                self.row_handle_width, 
+                self.row_handle_height, 
+                Message::RowDividerChange)
+                .into();
+
+
+        // make the stack
+        let col = column(rows).into();
+        let row_stk = stack([col, row_div]);
 
         let sp = vertical_space().height(5.0).into();
 
@@ -205,6 +151,7 @@ impl <'a> App <'a>{
 
         // Center everything in the window
         center(col).into()
+
     }
 }
 
