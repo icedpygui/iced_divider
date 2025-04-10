@@ -15,3 +15,7 @@ https://github.com/user-attachments/assets/430cf3d2-660b-4c07-9a23-d7445e43ff1a
 * The message routine is simple, see examples, and is esssentially the same for all situations.
 * Make a table easily, you have full control of the content and styling.
 * Tables can have headers or footers, no restrictions.
+* Note on padding:  
+    Padding cannot be used on the outer container in the stack because the divider
+    can't detect whether padding is used causing alignment issues.  Therefore, 
+    place the stack in a container and apply padding as needed.
