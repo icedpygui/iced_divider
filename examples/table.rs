@@ -65,6 +65,12 @@ impl <'a> App <'a>{
                 if index < self.column_widths.len()-1 {
                      self.column_widths[index+1] += diff;
                 }
+
+                // adjust divider width if table changes width
+                // using the last divider
+                if index == self.column_widths.len()-1 {
+                    self.row_handle_width = self.column_widths.iter().sum();
+                }
             },
             Message::RowDividerChange((index, value)) => {
 

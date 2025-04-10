@@ -557,41 +557,42 @@ fn get_handle_bounds(
             Direction::Horizontal => bounds.x,
             Direction::Vertical => bounds.y,
         };
-        for (i, width_height) in widths_heights.iter().enumerate() {
-            
-            if i == widths_heights.len()-1 {
-                if include_last_handle {
-                    start += width_height;
-                } else {
-                    break;
-                }
-            } else {
+ 
+    for (i, width_height) in widths_heights.iter().enumerate() {
+        
+        if i == widths_heights.len()-1 {
+            if include_last_handle {
                 start += width_height;
+            } else {
+                break;
             }
-
-            let rect = match direction {
-                Direction::Horizontal => {
-                    Rectangle{ 
-                        x: start+handle_offsets[i], 
-                        y: bounds.y, 
-                        width: handle_width, 
-                        height: handle_height,
-                    }
-                },
-                Direction::Vertical => {
-                    Rectangle{
-                        x: bounds.x,
-                        y: start+handle_offsets[i],
-                        width: handle_width,
-                        height: handle_height,
-                    }
-                },
-            };
-                
-            handle_bounds.push(rect);
-
+        } else {
+            start += width_height;
         }
-        handle_bounds
+
+        let rect = match direction {
+            Direction::Horizontal => {
+                Rectangle{ 
+                    x: start+handle_offsets[i], 
+                    y: bounds.y, 
+                    width: handle_width, 
+                    height: handle_height,
+                }
+            },
+            Direction::Vertical => {
+                Rectangle{
+                    x: bounds.x,
+                    y: start+handle_offsets[i],
+                    width: handle_width,
+                    height: handle_height,
+                }
+            },
+        };
+            
+        handle_bounds.push(rect);
+
+    }
+    handle_bounds
 }
 
 fn get_width_height_bounds(

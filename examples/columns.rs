@@ -4,14 +4,14 @@ use iced::widget::{button, column, container, row, stack, text};
 
 use iced::{Color, Element, Padding, Size};
 
-use iced_divider::divider::{self, divider_horizontal};
+use iced_divider::divider::divider_horizontal;
 
 pub fn main() -> iced::Result {
     iced::application(App::title, App::update, App::view)
         .theme(App::theme)
         .antialiasing(true)
         .centered()
-        .window_size(Size::new(700.0, 400.0))
+        .window_size(Size::new(700.0, 450.0))
         .run()
 }
 
@@ -34,7 +34,7 @@ impl App {
             column_widths1: vec![300.0; 2],
             column_widths2: vec![300.0; 2],
             handle_width: 4.0, // defaults to 4 just using for demo info
-            handle_height: 200.0, // needs to be the same height as the row
+            handle_height: 175.0, // needs to be the same height as the coulmns in the row
         }
     }
 
@@ -83,9 +83,10 @@ impl App {
             self.handle_height,
             Message::DividerChange1
         )
-        .style(|theme, status| {
-            divider::transparent(theme, status)
-        })
+        // make transparent to just show the outline
+        // .style(|theme, status| {
+        //     divider::transparent(theme, status)
+        // })
         .into();
 
         let div2 = divider_horizontal(
@@ -94,9 +95,10 @@ impl App {
             self.handle_height,
             Message::DividerChange2
         )
-        .style(|theme, status| {
-            divider::transparent(theme, status)
-        })
+        // make transparent to just show the outline
+        // .style(|theme, status| {
+        //     divider::transparent(theme, status)
+        // })
         // excludes the last divider to prevent total width resize
         .include_last_handle(false)
         .into();
@@ -109,11 +111,12 @@ impl App {
 
         // Put the columns into a row
         let rw1 = 
-            row(get_children(&self.column_widths1, str1))
-            .height(self.handle_height).into();
+            row(get_children(&self.column_widths1, str1, self.handle_height))
+            // .height(self.handle_height)
+            .into();
         let rw2 = 
-            row(get_children(&self.column_widths2, str2))
-            .height(self.handle_height)
+            row(get_children(&self.column_widths2, str2, self.handle_height))
+            // .height(self.handle_height)
             .into();
 
         // put them in a stack
@@ -136,7 +139,11 @@ impl Default for App {
     }
 }
 
-fn get_children<'a>(widths: &Vec<f32>, txt: &'a str) -> Vec<Element<'a, Message>> {
+fn get_children<'a>(
+    widths: &Vec<f32>, 
+    txt: &'a str,
+    handle_height: f32,) 
+    -> Vec<Element<'a, Message>> {
 
     let mut items: Vec<Element<Message>> = vec![];
 
@@ -151,6 +158,7 @@ fn get_children<'a>(widths: &Vec<f32>, txt: &'a str) -> Vec<Element<'a, Message>
                 button("Another button"),
                 ]           
                 .width(*width)
+                .height(handle_height)
             ).style(|_|{
                 let mut style = container::Style::default();
                 style.border.color = Color::WHITE;
