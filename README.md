@@ -19,3 +19,6 @@ https://github.com/user-attachments/assets/430cf3d2-660b-4c07-9a23-d7445e43ff1a
     Padding cannot be used on the outer container in the stack because the divider
     can't detect whether padding is used causing alignment issues.  Therefore, 
     place the stack in a container and apply padding as needed.
+
+## Future enhancements for v0.4.0
+add in a container to eliminate the stack
