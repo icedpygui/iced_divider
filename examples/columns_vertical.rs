@@ -29,7 +29,7 @@ impl App {
     fn new() -> Self {
         App {
             column_heights: vec![200.0; 2],
-            handle_width: 200.0,
+            handle_width: 175.0,
             handle_height: 4.0,
         }
     }
@@ -73,6 +73,7 @@ impl App {
                     toggler(false).label("Toggler"),
                     ]           
                     .height(*height)
+                    .width(self.handle_width)
                 )
                 .style(|_|{
                     let mut style = container::Style::default();

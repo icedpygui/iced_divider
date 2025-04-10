@@ -1,0 +1,11 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false,
+    "rust-analyzer.cargo.features": "all",
+    
+    "editor.selectionClipboard": false,
+    "rust-analyzer.hover.documentation.keywords.enable": true,
+
+}

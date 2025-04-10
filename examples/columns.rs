@@ -34,7 +34,7 @@ impl App {
             column_widths1: vec![300.0; 2],
             column_widths2: vec![300.0; 2],
             handle_width: 4.0, // defaults to 4 just using for demo info
-            handle_height: 300.0,
+            handle_height: 200.0, // needs to be the same height as the row
         }
     }
 
@@ -108,8 +108,13 @@ impl App {
             "The last divider is excluded\nfixing the total width";
 
         // Put the columns into a row
-        let rw1 = row(get_children(&self.column_widths1, str1)).into();
-        let rw2 = row(get_children(&self.column_widths2, str2)).into();
+        let rw1 = 
+            row(get_children(&self.column_widths1, str1))
+            .height(self.handle_height).into();
+        let rw2 = 
+            row(get_children(&self.column_widths2, str2))
+            .height(self.handle_height)
+            .into();
 
         // put them in a stack
         let stk1 = stack([rw1, div1]).into();
