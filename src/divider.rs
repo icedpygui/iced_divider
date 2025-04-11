@@ -83,7 +83,6 @@ use iced::advanced::{Clipboard, Layout, Shell, Widget};
 ///     }
 /// }
 /// ```
-
 pub fn divider_horizontal<'a, Message, Theme>(
     widths: Vec<f32>,
     handle_width: f32,
@@ -242,8 +241,8 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Divider<'a, Message, Theme>
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Divider<'_, Message, Theme>
 where
     Message: Clone,
     Theme: Catalog,
@@ -544,10 +543,10 @@ where
 
 fn get_handle_bounds(
     bounds: Rectangle,
-    widths_heights: &Vec<f32>,
+    widths_heights: &[f32],
     handle_width: f32,
     handle_height: f32,
-    handle_offsets: &Vec<f32>,
+    handle_offsets: &[f32],
     include_last_handle: bool,
     direction: Direction,
     ) -> Vec<Rectangle> 
@@ -597,7 +596,7 @@ fn get_handle_bounds(
 
 fn get_width_height_bounds(
     bounds: Rectangle,
-    widths_heights: &Vec<f32>,
+    widths_heights: &[f32],
     handle_width: f32,
     handle_height: f32,
     direction: Direction,
@@ -644,7 +643,7 @@ fn get_width_height_bounds(
 }
 
 fn find_mouse_over_handle_bounds(
-    handle_bounds: &Vec<Rectangle>,
+    handle_bounds: &[Rectangle],
     cursor: mouse::Cursor) 
     -> Option<usize> {
         for (index, bounds) in handle_bounds.iter().enumerate() {
