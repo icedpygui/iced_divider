@@ -76,10 +76,10 @@ impl <'a> App <'a>{
 
                 let diff = self.row_heights[index] - value;
 
-                // Adjust the left side
+                // Adjust row above divider
                 self.row_heights[index] = value;
                 
-                // Adjust the right side
+                // Adjust row below divider
                 if index < self.row_heights.len()-1 {
                      self.row_heights[index+1] += diff;
                 }
